@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>St. Gemini Hospital - Network Operations</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Oswald:wght@500&display=swap"
+        rel="stylesheet">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+</head>
+
+<body>
+
+    <div class="sidebar">
+        <div class="logo-area">
+            <i class="fa-solid fa-hospital-user"></i>
+            <div>
+                <h1>NET-SENTINEL</h1>
+                <small>Hospital SD-WAN</small>
+            </div>
+        </div>
+
+        <nav>
+            <a href="#" class="active"><i class="fa-solid fa-layer-group"></i> Dashboard</a>
+            <a href="#"><i class="fa-solid fa-wifi"></i> Access Points</a>
+            <a href="#"><i class="fa-solid fa-user-doctor"></i> Staff Traffic</a>
+            <a href="#"><i class="fa-solid fa-shield-virus"></i> Security</a>
+        </nav>
+
+        <div class="controls-area">
+            <h3>SIMULATION CONTROLS</h3>
+            <button id="btn-start" class="btn primary"><i class="fa-solid fa-play"></i> Start Traffic</button>
+            <button id="btn-stop" class="btn secondary"><i class="fa-solid fa-pause"></i> Pause</button>
+            <button id="btn-reset" class="btn warning"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+            <div class="separator"></div>
+            <button id="btn-ddos" class="btn danger"><i class="fa-solid fa-bug"></i> Simulate Attack</button>
+        </div>
+    </div>
+
+    <main class="main-content">
+        <header>
+            <h2><i class="fa-solid fa-building"></i> FACILITY NETWORK MAP</h2>
+            <div class="status-indicators">
+                <div class="indicator">
+                    <span class="label">SYSTEM STATUS</span>
+                    <span class="value success">OPTIMAL</span>
+                </div>
+                <div class="indicator">
+                    <span class="label">ACTIVE USERS</span>
+                    <span class="value">1,204</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Floor Plan / Topology -->
+            <div class="card map-card">
+                <div class="card-header">
+                    <h3>LIVE INFRASTRUCTURE MAP</h3>
+                    <div class="legend">
+                        <span class="dot normal"></span> Stable
+                        <span class="dot warning"></span> Congested
+                        <span class="dot critical"></span> Critical
+                    </div>
+                </div>
+                <div id="cy-container"></div>
+            </div>
+
+            <!-- Side Panel Stats -->
+            <div class="stats-column">
+                <div class="card stat-card">
+                    <div class="icon-box blue"><i class="fa-solid fa-stopwatch"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Avg Latency</span>
+                        <span class="stat-value" id="avg-latency">0 ms</span>
+                    </div>
+                </div>
+
+                <div class="card stat-card">
+                    <div class="icon-box red"><i class="fa-solid fa-packet"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Packet Loss</span>
+                        <span class="stat-value" id="avg-loss">0 %</span>
+                    </div>
+                </div>
+
+                <div class="card chart-card">
+                    <h3><i class="fa-solid fa-wave-square"></i> NETWORK PULSE</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="latencyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card log-card">
+                    <h3><i class="fa-solid fa-clipboard-list"></i> ALERT LOG</h3>
+                    <ul id="event-log">
+                        <!-- Logs here -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Critical Alert Modal -->
+    <div id="alert-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <h2>CRITICAL CONGESTION DETECTED</h2>
+            </div>
+            <div class="modal-body">
+                <p>Severe packet loss detected on critical infrastructure links.</p>
+                <p><strong>Impact:</strong> Patient Monitoring Systems (ICU), Radiology Data Transfer.</p>
+                <p>Immediate intervention required.</p>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-dispatch" class="btn primary pulse-animation">
+                    <i class="fa-solid fa-user-shield"></i> DISPATCH AVOIDANCE TEAM
+                </button>
+                <button id="btn-ignore" class="btn secondary">
+                    Ignore
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>
