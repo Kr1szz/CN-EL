@@ -1,6 +1,5 @@
 
 
-``
 # SD-WAN Hospital Network Simulator
 
 A real-time visualization tool that simulates network traffic in a hospital environment. This project demonstrates how modern networks detect congestion and defend against DDoS attacks using statistical algorithms.
@@ -74,7 +73,6 @@ npm run dev
 
 Open your browser and navigate to: **[http://localhost:5173](https://www.google.com/search?q=http://localhost:5173)**
 
----
 
 ## 🎮 How to Use
 
@@ -95,7 +93,7 @@ The system uses three main signals to detect trouble:
 * **Shannon Entropy:** Measures the "randomness" of traffic. High randomness is healthy; low randomness (uniform packet floods) indicates an attack.
 * **Token Bucket:** Controls the rate of traffic to prevent bursts from crashing the system.
 
-## 📊 Color Legend
+##  Color Legend
 
 | Color | Status | Usage |
 | --- | --- | --- |
@@ -104,14 +102,10 @@ The system uses three main signals to detect trouble:
 |  Orange | Busy | 50-80% |
 |  Red | Congested | > 80% |
 
----
-
-## 🏗️ Architecture
+##  Architecture
 
 * **Frontend:** React + Vite (Interactive Map & Graphs)
 * **Backend:** Flask + Python (Simulation Logic & Math)
 * **Graphing:** NetworkX (Topology Path Calculations)
 
-```
 
-```
