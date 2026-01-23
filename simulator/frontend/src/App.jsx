@@ -1,6 +1,6 @@
 
-import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { useState, useEffect, useRef } from 'react'
+
 import { motion } from 'framer-motion'
 import { Activity, Shield, Zap, Play, Pause, RotateCcw, AlertTriangle, Network, Cpu, Terminal, Wifi, Server } from 'lucide-react'
 import HospitalTopology from './components/HospitalTopology'
@@ -10,52 +10,94 @@ import NetworkPulse from './components/NetworkPulse'
 import EntropyGraph from './components/EntropyGraph'
 import QoSPanel from './components/QoSPanel'
 
+
+import { NetworkSimulation } from './simulation/NetworkSimulation'
+
 function App() {
   const [data, setData] = useState(null)
   const [isRunning, setIsRunning] = useState(false)
   const [trafficMode, setTrafficMode] = useState('NORMAL')
   const [allAlerts, setAllAlerts] = useState([])
 
-  const fetchData = async () => {
-    try {
-      const res = await axios.get('/api/state')
-      setData(res.data)
-      if (res.data.traffic_mode) {
-        setTrafficMode(res.data.traffic_mode)
+  // Use a ref to hold the simulation instance so it persists across renders
+  // and doesn't trigger re-renders itself.
+  const simRef = useRef(null)
+
+  useEffect(() => {
+    // Initialize simulation once
+    simRef.current = new NetworkSimulation()
+
+    // Initial fetch
+    const initialState = simRef.current.getState()
+    setData(initialState)
+    setTrafficMode(initialState.traffic_mode)
+
+    // Simulation Loop
+    let animationFrameId
+    const loop = () => {
+      if (simRef.current) {
+        if (simRef.current.running) {
+          simRef.current.update()
+        }
+
+        // We might not want to update React state on *every* frame (60fps) as it might be too heavy?
+        // Let's try every frame first. If slow, we throttle.
+        // Actually Python was 20Hz (50ms). requestAnimationFrame is ~60Hz.
+        // Maybe we should debounce the setState or just run updatelogic on every frame but setState less often?
+        // Let's keep it simple: update logic and state every frame.
+
+        const state = simRef.current.getState()
+        setData(state)
+
+        // Alerts
+        if (state.alerts?.length > 0) {
+          setAllAlerts(state.alerts)
+        }
       }
-      if (res.data.alerts?.length > 0) {
-        setAllAlerts(prev => {
-          const newAlerts = res.data.alerts.filter(
-            a => !prev.some(p => p.time === a.time && p.msg === a.msg)
-          )
-          return [...prev, ...newAlerts].slice(-100)
-        })
-      }
-    } catch (err) {
-      console.error("Connection Error", err)
+      animationFrameId = requestAnimationFrame(loop)
+    }
+
+    loop()
+
+    return () => cancelAnimationFrame(animationFrameId)
+  }, [])
+
+  const handleControl = (action) => {
+    if (!simRef.current) return
+
+    if (action === 'start') {
+      simRef.current.running = true
+      setIsRunning(true)
+    }
+    if (action === 'stop') {
+      simRef.current.running = false
+      setIsRunning(false)
+    }
+    if (action === 'reset') {
+      simRef.current.running = false
+      simRef.current.trafficMode = 'NORMAL'
+      simRef.current.setupNetworkFloors() // Reset topology state if needed
+      // Clear traffic
+      Object.values(simRef.current.links).forEach(l => l.activeTraffic = [])
+
+      setIsRunning(false)
+      setTrafficMode('NORMAL')
+      setAllAlerts([])
     }
   }
 
-  useEffect(() => {
-    fetchData()
-    const interval = setInterval(fetchData, 500)
-    return () => clearInterval(interval)
-  }, [])
-
-  const handleControl = async (action) => {
-    await axios.post('/api/control', { action })
-    if (action === 'start') setIsRunning(true)
-    if (action === 'stop') setIsRunning(false)
-    if (action === 'reset') { setIsRunning(false); setTrafficMode('NORMAL'); setAllAlerts([]) }
-    fetchData()
-  }
-
-  const handleMode = async (mode) => {
-    await axios.post('/api/mode', { mode })
+  const handleMode = (mode) => {
+    if (!simRef.current) return
+    simRef.current.trafficMode = mode
     setTrafficMode(mode)
-    setIsRunning(true)
-    fetchData()
+
+    // Auto-start
+    if (!simRef.current.running) {
+      simRef.current.running = true
+      setIsRunning(true)
+    }
   }
+
 
   if (!data) {
     return (
