@@ -2,21 +2,27 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { motion } from 'framer-motion'
-import { Activity, Shield, Zap, Play, Pause, RotateCcw, AlertTriangle, Network, Cpu, Terminal } from 'lucide-react'
+import { Activity, Shield, Zap, Play, Pause, RotateCcw, AlertTriangle, Network, Cpu, Terminal, Wifi, Server } from 'lucide-react'
 import HospitalTopology from './components/HospitalTopology'
 import StatCard from './components/StatCard'
 import TerminalLog from './components/TerminalLog'
+import NetworkPulse from './components/NetworkPulse'
+import EntropyGraph from './components/EntropyGraph'
+import QoSPanel from './components/QoSPanel'
 
 function App() {
   const [data, setData] = useState(null)
   const [isRunning, setIsRunning] = useState(false)
-  const [isDdosActive, setIsDdosActive] = useState(false)
+  const [trafficMode, setTrafficMode] = useState('NORMAL')
   const [allAlerts, setAllAlerts] = useState([])
 
   const fetchData = async () => {
     try {
       const res = await axios.get('/api/state')
       setData(res.data)
+      if (res.data.traffic_mode) {
+        setTrafficMode(res.data.traffic_mode)
+      }
       if (res.data.alerts?.length > 0) {
         setAllAlerts(prev => {
           const newAlerts = res.data.alerts.filter(
@@ -40,13 +46,14 @@ function App() {
     await axios.post('/api/control', { action })
     if (action === 'start') setIsRunning(true)
     if (action === 'stop') setIsRunning(false)
-    if (action === 'reset') { setIsRunning(false); setIsDdosActive(false); setAllAlerts([]) }
+    if (action === 'reset') { setIsRunning(false); setTrafficMode('NORMAL'); setAllAlerts([]) }
     fetchData()
   }
 
-  const handleTrigger = async (event) => {
-    await axios.post('/api/trigger', { event })
-    if (event === 'ddos') setIsDdosActive(!isDdosActive)
+  const handleMode = async (mode) => {
+    await axios.post('/api/mode', { mode })
+    setTrafficMode(mode)
+    setIsRunning(true)
     fetchData()
   }
 
@@ -60,6 +67,15 @@ function App() {
         </div>
       </div>
     )
+  }
+
+  const getModeColor = (mode) => {
+    switch (mode) {
+      case 'NORMAL': return '#22c55e'
+      case 'CONGESTED': return '#f59e0b'
+      case 'DDOS': return '#ef4444'
+      default: return '#64748b'
+    }
   }
 
   return (
@@ -83,63 +99,29 @@ function App() {
               <div className="status-dot"></div>
               {isRunning ? 'ACTIVE' : 'STANDBY'}
             </div>
-            {isDdosActive && (
-              <motion.div className="attack-badge" initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                <AlertTriangle size={14} /> ATTACK
-              </motion.div>
-            )}
+            <div className="mode-badge" style={{
+              background: `${getModeColor(trafficMode)}20`,
+              color: getModeColor(trafficMode),
+              border: `1px solid ${getModeColor(trafficMode)}50`
+            }}>
+              <Server size={12} /> {trafficMode}
+            </div>
           </div>
         </header>
 
         <div className="content-grid-3">
-          <aside className="sidebar">
-            <div className="stats-section">
-              <h3 className="section-title">METRICS</h3>
-              <StatCard
-                label="Throughput"
-                value={`${Math.round(data.global_stats.total_throughput_mbps)}`}
-                unit="Mbps"
-                icon={<Activity size={16} />}
-                color="blue"
-              />
-              <StatCard
-                label="Entropy"
-                value={data.global_stats.avg_system_entropy.toFixed(2)}
-                subtext={data.global_stats.avg_system_entropy < 0.5 ? "⚠ LOW ENTROPY" : "Normal Distribution"}
-                icon={<Shield size={16} />}
-                color={data.global_stats.avg_system_entropy < 0.5 ? "red" : "purple"}
-              />
-              <StatCard
-                label="Nodes"
-                value={data.global_stats.active_nodes}
-                icon={<Zap size={16} />}
-                color="green"
-              />
-            </div>
-
-            <div className="controls-section">
-              <h3 className="section-title">CONTROLS</h3>
-              <div className="control-buttons">
-                <button
-                  onClick={() => handleControl(isRunning ? 'stop' : 'start')}
-                  className={`ctrl-btn ${isRunning ? 'stop' : 'start'}`}
-                >
-                  {isRunning ? <><Pause size={14} /> PAUSE</> : <><Play size={14} /> START</>}
-                </button>
-                <button onClick={() => handleControl('reset')} className="ctrl-btn reset">
-                  <RotateCcw size={14} /> RESET
-                </button>
+          {/* LEFT: Terminal Log */}
+          <aside className="left-panel">
+            <div className="terminal-panel">
+              <div className="terminal-header-bar">
+                <Terminal size={14} />
+                <span>System Logs</span>
               </div>
-              <button
-                onClick={() => handleTrigger('ddos')}
-                className={`ctrl-btn attack ${isDdosActive ? 'active' : ''}`}
-              >
-                <AlertTriangle size={14} />
-                {isDdosActive ? 'STOP ATTACK' : 'SIMULATE DDoS'}
-              </button>
+              <TerminalLog alerts={allAlerts} />
             </div>
           </aside>
 
+          {/* CENTER: Topology + Controls */}
           <main className="visualization-area">
             <div className="viz-header">
               <h2>NETWORK TOPOLOGY</h2>
@@ -153,14 +135,67 @@ function App() {
             <div className="topology-container">
               <HospitalTopology nodes={data.nodes} links={data.links} />
             </div>
+
+            {/* Traffic Mode Buttons */}
+            <div className="mode-controls">
+              <div className="mode-buttons">
+                <button
+                  onClick={() => handleMode('NORMAL')}
+                  className={`mode-btn normal ${trafficMode === 'NORMAL' ? 'active' : ''}`}
+                >
+                  <Wifi size={16} /> Normal Traffic
+                </button>
+                <button
+                  onClick={() => handleMode('CONGESTED')}
+                  className={`mode-btn congested ${trafficMode === 'CONGESTED' ? 'active' : ''}`}
+                >
+                  <Activity size={16} /> Congested
+                </button>
+                <button
+                  onClick={() => handleMode('DDOS')}
+                  className={`mode-btn ddos ${trafficMode === 'DDOS' ? 'active' : ''}`}
+                >
+                  <AlertTriangle size={16} /> DDoS Attack
+                </button>
+              </div>
+              <div className="sim-controls">
+                <button
+                  onClick={() => handleControl(isRunning ? 'stop' : 'start')}
+                  className={`ctrl-btn ${isRunning ? 'stop' : 'start'}`}
+                >
+                  {isRunning ? <><Pause size={14} /> PAUSE</> : <><Play size={14} /> START</>}
+                </button>
+                <button onClick={() => handleControl('reset')} className="ctrl-btn reset">
+                  <RotateCcw size={14} /> RESET
+                </button>
+              </div>
+            </div>
           </main>
 
-          <aside className="terminal-panel">
-            <div className="terminal-header-bar">
-              <Terminal size={14} />
-              <span>System Logs</span>
+          {/* RIGHT: Stats + Graphs */}
+          <aside className="right-panel">
+            <div className="stats-section">
+              <StatCard
+                label="Throughput"
+                value={`${Math.round(data.global_stats.total_throughput_mbps)}`}
+                unit="Mbps"
+                icon={<Activity size={16} />}
+                color="blue"
+              />
+              <StatCard
+                label="Entropy"
+                value={data.global_stats.avg_system_entropy.toFixed(2)}
+                subtext={data.global_stats.avg_system_entropy < 0.5 ? "⚠ ANOMALY" : "Normal"}
+                icon={<Shield size={16} />}
+                color={data.global_stats.avg_system_entropy < 0.5 ? "red" : "purple"}
+              />
             </div>
-            <TerminalLog alerts={allAlerts} />
+
+            <div className="graphs-section">
+              <NetworkPulse throughput={data.global_stats.total_throughput_mbps} />
+              <EntropyGraph entropy={data.global_stats.avg_system_entropy} />
+              <QoSPanel links={data.links} />
+            </div>
           </aside>
         </div>
       </div>

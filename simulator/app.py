@@ -23,7 +23,9 @@ def index():
 
 @app.route('/api/state')
 def get_state():
-    return jsonify(sim.get_state())
+    state = sim.get_state()
+    state['traffic_mode'] = sim.traffic_mode
+    return jsonify(state)
 
 @app.route('/api/control', methods=['POST'])
 def control():
@@ -38,23 +40,25 @@ def control():
         return jsonify({"status": "Simulation Paused"})
     elif action == 'reset':
         sim.running = False
-        sim.ddos_active = False
+        sim.traffic_mode = 'NORMAL'
         sim.setup_network_floors()
         return jsonify({"status": "Simulation Reset"})
     
     return jsonify({"error": "Invalid Action"}), 400
 
-@app.route('/api/trigger', methods=['POST'])
-def trigger():
+@app.route('/api/mode', methods=['POST'])
+def set_mode():
     data = request.json
-    event = data.get('event')
+    mode = data.get('mode')
     
-    if event == 'ddos':
-        sim.ddos_active = not sim.ddos_active
-        status = "STARTED" if sim.ddos_active else "STOPPED"
-        return jsonify({"status": f"DDoS Attack {status}"})
+    if mode in ['NORMAL', 'CONGESTED', 'DDOS']:
+        sim.traffic_mode = mode
+        # Auto-start if not running
+        if not sim.running:
+            sim.running = True
+        return jsonify({"status": f"Traffic mode set to {mode}", "mode": mode})
     
-    return jsonify({"error": "Invalid Event"}), 400
+    return jsonify({"error": "Invalid mode"}), 400
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
