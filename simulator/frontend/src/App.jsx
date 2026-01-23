@@ -33,31 +33,43 @@ function App() {
     setTrafficMode(initialState.traffic_mode)
 
     // Simulation Loop
+    // Simulation Loop
     let animationFrameId
-    const loop = () => {
-      if (simRef.current) {
-        if (simRef.current.running) {
+    let lastTime = 0
+    const SIM_INTERVAL = 50 // 20Hz to match Python version
+
+    const loop = (timestamp) => {
+      if (!lastTime) lastTime = timestamp
+      const elapsed = timestamp - lastTime
+
+      if (elapsed >= SIM_INTERVAL) {
+        if (simRef.current && simRef.current.running) {
           simRef.current.update()
         }
 
-        // We might not want to update React state on *every* frame (60fps) as it might be too heavy?
-        // Let's try every frame first. If slow, we throttle.
-        // Actually Python was 20Hz (50ms). requestAnimationFrame is ~60Hz.
-        // Maybe we should debounce the setState or just run updatelogic on every frame but setState less often?
-        // Let's keep it simple: update logic and state every frame.
+        if (simRef.current) {
+          const state = simRef.current.getState()
+          setData(state)
 
-        const state = simRef.current.getState()
-        setData(state)
-
-        // Alerts
-        if (state.alerts?.length > 0) {
-          setAllAlerts(state.alerts)
+          // Fix Logs: Accumulate alerts instead of overwriting
+          if (state.alerts?.length > 0) {
+            setAllAlerts(prev => {
+              const newAlerts = state.alerts.filter(
+                a => !prev.some(p => p.time === a.time && p.msg === a.msg)
+              )
+              if (newAlerts.length === 0) return prev;
+              return [...prev, ...newAlerts].slice(-100)
+            })
+          }
         }
+
+        lastTime = timestamp
       }
+
       animationFrameId = requestAnimationFrame(loop)
     }
 
-    loop()
+    animationFrameId = requestAnimationFrame(loop)
 
     return () => cancelAnimationFrame(animationFrameId)
   }, [])

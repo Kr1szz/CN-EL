@@ -556,6 +556,15 @@ body {
   .app-container {
     padding: 6px;
     gap: 6px;
+    height: auto;
+    /* Allow scroll */
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  .main-layout {
+    overflow: visible;
+    height: auto;
   }
 
   .app-header {
@@ -580,54 +589,74 @@ body {
   .content-grid-3 {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
+    height: auto;
+    overflow: visible;
   }
 
-  .sidebar {
+  /* RESET HEIGHTS for mobile stack */
+  .left-panel,
+  .right-panel,
+  .visualization-area {
+    height: auto !important;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .visualization-area {
+    order: 1;
+    min-height: 400px;
+    /* Give map enough space */
+    aspect-ratio: 1/1;
+  }
+
+  .right-panel {
     order: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .left-panel {
+    order: 3;
+  }
+
+  .stats-section {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 8px;
   }
 
-  .stats-section {
+  .stats-section>* {
     flex: 1;
     min-width: 140px;
   }
 
-  .controls-section {
-    flex: 1;
-    min-width: 140px;
-  }
-
-  .visualization-area {
-    order: 1;
-    min-height: 350px;
+  .graphs-section {
+    max-height: 400px;
+    /* Limit graph height on mobile */
   }
 
   .terminal-panel {
-    order: 3;
-    min-height: 180px;
-    max-height: 250px;
+    min-height: 200px;
+    max-height: 300px;
   }
 
   .topology-container {
     overflow: auto;
     -webkit-overflow-scrolling: touch;
+    height: 300px;
+  }
+
+  .topology-container>div {
+    width: 100% !important;
+    height: 100% !important;
   }
 
   .ctrl-btn {
     padding: 12px 10px;
     font-size: 0.75rem;
     min-height: 48px;
-  }
-
-  .legend {
-    gap: 6px;
-  }
-
-  .legend-item {
-    font-size: 0.55rem;
   }
 }
 
