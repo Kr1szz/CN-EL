@@ -1,8 +1,8 @@
 
 
-# SD-WAN Hospital Network Simulator
+# Private SD-WAN Hospital Network Simulator
 
-A real-time visualization tool that simulates network traffic in a hospital environment. This project demonstrates how modern networks detect congestion and defend against DDoS attacks using statistical algorithms.
+A real-time visualization tool that simulates network traffic in a **private SD-WAN** hospital environment. This project demonstrates how modern private SD-WAN networks detect congestion and defend against DDoS attacks using statistical algorithms.
 
 ##  Overview
 This tool models a hospital's digital infrastructure (ICUs, Radiology, Servers, etc.) and visualizes data flowing between them. It is designed to help users:

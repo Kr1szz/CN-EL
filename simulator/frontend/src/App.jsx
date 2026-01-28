@@ -116,8 +116,8 @@ function App() {
       <div className="loading-screen">
         <div className="loading-content">
           <Cpu size={48} className="loading-icon" />
-          <h2>Initializing SD-WAN Sentinel</h2>
-          <p>Connecting to network infrastructure...</p>
+          <h2>Initializing Private SD-WAN Sentinel</h2>
+          <p>Connecting to private network infrastructure...</p>
         </div>
       </div>
     )
@@ -144,8 +144,8 @@ function App() {
           <div className="header-left">
             <Network size={28} className="header-icon" />
             <div>
-              <h1>SD-WAN <span>CONGESTION DETECTION</span></h1>
-              <p>Hospital Network Monitoring</p>
+              <h1>PRIVATE SD-WAN <span>CONGESTION DETECTION</span></h1>
+              <p>Private Hospital Network Monitoring</p>
             </div>
           </div>
           <div className="header-right">

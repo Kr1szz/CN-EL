@@ -1,0 +1,118 @@
+\documentclass[12pt]{article}
+\usepackage[landscape, margin=1in, paperwidth=10in, paperheight=7.5in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\pagestyle{empty}
+
+% Slide Macro
+\newcommand{\slide}[2]{
+    \newpage
+    \topskip0pt
+    \vspace*{\fill}
+    \begin{center}
+        \Huge \textbf{#1}
+    \end{center}
+    \vspace{1cm}
+    \Large
+    #2
+    \vspace*{\fill}
+}
+
+\begin{document}
+
+% Slide 1: Title
+\slide{Mathematical Models for \\ Network Anomaly Detection}{
+    \textbf{Making Sense of Chaos using Statistics and Probability}
+    
+    \vspace{2cm}
+    \textbf{Computer Networks Project} \\
+    \today
+}
+
+% Slide 2: The Problem
+\slide{The Core Problem: Signal vs. Noise}{
+    \textbf{Imagine a busy hospital hallway.}
+    \vspace{1cm}
+    \begin{itemize}
+        \item \textbf{Normal Busy}: Doctors, nurses, and patients moving with purpose. It's crowded, but efficient.
+        \item \textbf{Attack (DDoS)}: A thousand people suddenly running down the hall screaming the same word.
+    \end{itemize}
+    \vspace{1cm}
+    \textit{How do we teach a computer to tell the difference?}
+}
+
+% Slide 3: Entropy
+\slide{1. Shannon Entropy (Measuring Surprise)}{
+    \textbf{Concept:} Entropy measures \textit{uncertainty}.
+    
+    \vspace{1cm}
+    \textbf{The Coin Toss Analogy}
+    \begin{itemize}
+        \item \textbf{High Entropy}: A fair coin. 50\% Heads, 50\% Tails.
+        \item \textbf{Low Entropy}: A rigged coin. 100\% Heads. Zero surprise.
+    \end{itemize}
+}
+
+% Slide 4: Entropy in Networks
+\slide{Entropy in Networks}{
+    $$H(X) = -\sum P(x_i) \log_2 P(x_i)$$
+    \vspace{1cm}
+
+    \begin{itemize}
+        \item \textbf{Normal Traffic}: Mix of types (HTTP, VoIP, DICOM). \\
+              \textbf{High Entropy ($\approx$ 3.0)}
+        \item \textbf{DDoS Attack}: Flood of ONE type (UDP). \\
+              \textbf{Low Entropy ($\rightarrow$ 0.0)}
+    \end{itemize}
+}
+
+% Slide 5: EWMA
+\slide{2. EWMA (Smoothing the Jitter)}{
+    \textbf{Exponentially Weighted Moving Average}
+    \vspace{1cm}
+    $$RTT_{new} = (1 - \alpha) \cdot RTT_{old} + \alpha \cdot RTT_{current}$$
+    \vspace{1cm}
+    \begin{itemize}
+        \item Latency jumps around a lot.
+        \item We use a "memory" factor ($\alpha$) to smooth the curve.
+        \item Ignores brief spikes, catches real congestion.
+    \end{itemize}
+}
+
+% Slide 6: Z-Score
+\slide{3. Z-Score (Spotting Outliers)}{
+    $$Z = \frac{Value - Average}{StandardDeviation}$$
+    \vspace{1cm}
+    \begin{itemize}
+        \item \textbf{Z = 0}: Average behavior.
+        \item \textbf{Z > 3}: \textbf{Extremely Rare!} (Anomaly)
+    \end{itemize}
+    \vspace{1cm}
+    Used to detect Flash Crowds (massive volume spikes).
+}
+
+% Slide 7: CSS
+\slide{4. Congestion Severity Score (CSS)}{
+    $$CSS = 0.5 \cdot Latency + 20.0 \cdot Loss + 2.0 \cdot (1 - Entropy)$$
+    \vspace{1cm}
+    \begin{itemize}
+        \item Combines Latency, Packet Loss, and Entropy.
+        \item \textbf{Score < 1}: Healthy
+        \item \textbf{Score > 4}: \textbf{CRITICAL ALERT}
+    \end{itemize}
+}
+
+% Slide 8: Summary
+\slide{Summary}{
+    \centering
+    \begin{tabular}{ll}
+        \textbf{Algorithm} & \textbf{Purpose} \\
+        \hline
+        Shannon Entropy & Detect Attacks \\
+        EWMA & Smooth Latency \\
+        Z-Score & Detect Outliers \\
+        CSS & Combined Decision \\
+    \end{tabular}
+}
+
+\end{document}

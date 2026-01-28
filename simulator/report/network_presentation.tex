@@ -1,0 +1,108 @@
+\documentclass[12pt]{article}
+\usepackage[landscape, margin=1in, paperwidth=10in, paperheight=7.5in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\pagestyle{empty}
+
+% Slide Macro
+\newcommand{\slide}[2]{
+    \newpage
+    \topskip0pt
+    \vspace*{\fill}
+    \begin{center}
+        \Huge \textbf{#1}
+    \end{center}
+    \vspace{1cm}
+    \Large
+    #2
+    \vspace*{\fill}
+}
+
+\begin{document}
+
+% Slide 1
+\slide{Private SD-WAN Network Security \& Performance}{
+    \textbf{Understanding Congestion and DDoS in Healthcare}
+    
+    \vspace{2cm}
+    \textbf{Computer Networks Project} \\
+    \today
+}
+
+% Slide 2
+\slide{Scenario: The Digital Hospital}{
+    Modern hospitals are digital ecosystems.
+    \vspace{1cm}
+    \begin{itemize}
+        \item \textbf{Radiology}: Sending huge MRI images (Gigabytes).
+        \item \textbf{Surgeons}: Video calling colleagues during operations.
+        \item \textbf{Patients}: Using Guest Wi-Fi.
+    \end{itemize}
+    \vspace{1cm}
+    \textbf{The Challenge:} How do we keep the surgeon's video smooth when a patient starts downloading a movie?
+}
+
+% Slide 3
+\slide{What is Private SD-WAN?}{
+    \textbf{Traditional WAN vs Private SD-WAN}
+    \vspace{1cm}
+    \begin{itemize}
+        \item \textbf{Traditional}: Like a train on fixed tracks. Can't change route if there's a jam.
+        \item \textbf{Private SD-WAN}: A dedicated network infrastructure (not shared with public internet). It sees traffic in real-time and steers data to the fastest open road---all within a secure, isolated environment.
+    \end{itemize}
+}
+
+% Slide 4
+\slide{The Danger: Congestion vs. DDoS}{
+    \begin{itemize}
+        \item \textbf{1. Legitimate Congestion}:
+        \begin{itemize}
+            \item \textbf{Cause}: Too much good work happening (e.g., 3 Doctors opening X-Rays).
+            \item \textbf{Action}: \textbf{Queue it. Prioritize it.}
+        \end{itemize}
+        \vspace{0.5cm}
+        \item \textbf{2. DDoS Attack}:
+        \begin{itemize}
+            \item \textbf{Cause}: Malicious Hackers / Botnets.
+            \item \textbf{Action}: \textbf{Block it immediately.}
+        \end{itemize}
+    \end{itemize}
+    \vspace{1cm}
+    \textit{Misidentifying them is dangerous!}
+}
+
+% Slide 5
+\slide{Traffic Priority (QoS)}{
+    \centering
+    \begin{tabular}{llcl}
+        \textbf{Class} & \textbf{Traffic} & \textbf{Priority} & \textbf{Examples} \\
+        \hline
+        \textbf{GOLD} & Real-time & High & VoIP, Tele-surgery \\
+        \textbf{SILVER} & Business & Medium & EMR, MRI Scans \\
+        \textbf{BRONZE} & Best Effort & Low & YouTube, Guest Wi-Fi \\
+    \end{tabular}
+}
+
+% Slide 6
+\slide{Solution: Weighted Fair Queuing (WFQ)}{
+    \textbf{Imagine a Club Entrance with 3 Lines:}
+    \vspace{1cm}
+    \begin{itemize}
+        \item \textbf{Gold Line (VIP)}: Lets 6 people in.
+        \item \textbf{Silver Line}: Lets 3 people in.
+        \item \textbf{Bronze Line}: Lets 1 person in.
+    \end{itemize}
+    \vspace{1cm}
+    Even if the Bronze line has 1000 people, the VIPs still get through quickly.
+}
+
+% Slide 7
+\slide{Conclusion}{
+    \begin{enumerate}
+        \item We use \textbf{Mathematics} (Entropy) to detect attacks.
+        \item We use \textbf{QoS Queuing} to protect critical patient data.
+        \item Real-time analysis gives us visibility.
+    \end{enumerate}
+}
+
+\end{document}

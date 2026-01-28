@@ -1,3 +1,11 @@
+/**
+ * Private SD-WAN Hospital Network Simulation
+ * 
+ * This simulation models a private SD-WAN network infrastructure for a hospital
+ * environment. Private SD-WAN operates over dedicated circuits (not shared with
+ * public internet), providing superior security and consistent performance for
+ * healthcare-critical applications.
+ */
 
 import { v4 as uuidv4 } from 'uuid';
 

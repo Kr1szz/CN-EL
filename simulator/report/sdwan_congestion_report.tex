@@ -1,41 +1,26 @@
-\documentclass[conference]{IEEEtran}
-\IEEEoverridecommandlockouts
+\documentclass[12pt]{article}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
 
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
-\usepackage{algorithmic}
 \usepackage{graphicx}
-\usepackage{textcomp}
-\usepackage{xcolor}
-\usepackage{listings}
-\usepackage{hyperref}
 \usepackage{booktabs}
-
-\lstset{
-    basicstyle=\ttfamily\footnotesize,
-    breaklines=true,
-    frame=single,
-    language=Python,
-    keywordstyle=\color{blue},
-    commentstyle=\color{green!60!black},
-    stringstyle=\color{red}
-}
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 
 \begin{document}
 
-\title{SD-WAN Congestion Detection and Anomaly Identification Using Machine Learning Algorithms: A Hospital Network Simulation\\
+\title{Private SD-WAN Congestion Detection and Anomaly Identification Using Machine Learning Algorithms: A Hospital Network Simulation\\
 {\footnotesize Computer Networks and Communications Project Report}
 }
 
-\author{\IEEEauthorblockN{Gopal}
-\IEEEauthorblockA{\textit{Department of Computer Science} \\
+\author{Gopal \\
+\textit{Department of Computer Science} \\
 \textit{University Name}\\
 City, Country \\
 email@example.com}
-}
 
 \maketitle
 
@@ -43,15 +28,13 @@ email@example.com}
 Software-Defined Wide Area Networks (SD-WAN) have revolutionized enterprise networking by providing centralized control, improved visibility, and dynamic traffic management. However, detecting and mitigating network congestion while distinguishing it from malicious attacks such as Distributed Denial of Service (DDoS) remains a significant challenge. This paper presents a comprehensive simulation framework for SD-WAN congestion detection in a hospital network environment. We implement and evaluate multiple algorithms including Exponentially Weighted Moving Average (EWMA) for latency smoothing, Token Bucket for traffic policing, Shannon Entropy for anomaly detection, and Z-Score analysis for statistical outlier identification. Our simulation demonstrates effective differentiation between normal congestion events and DDoS attacks through entropy analysis, achieving accurate identification of attack patterns. The web-based visualization interface provides real-time monitoring of network topology, congestion metrics, and alert systems.
 \end{abstract}
 
-\begin{IEEEkeywords}
-SD-WAN, Congestion Detection, DDoS Attack, Shannon Entropy, EWMA, Token Bucket, Network Simulation, Hospital Network
-\end{IEEEkeywords}
+\textbf{Keywords:} SD-WAN, Congestion Detection, DDoS Attack, Shannon Entropy, EWMA, Token Bucket, Network Simulation, Hospital Network
 
 \section{Introduction}
 
 Modern healthcare facilities rely heavily on network infrastructure to support critical applications including Electronic Medical Records (EMR), Picture Archiving and Communication Systems (PACS), Voice over IP (VoIP) communications, and Internet of Things (IoT) medical devices. The convergence of these diverse traffic types on a single network infrastructure creates unique challenges for traffic management and security.
 
-Software-Defined Wide Area Networks (SD-WAN) have emerged as a solution to these challenges by providing centralized traffic management, quality of service (QoS) enforcement, and enhanced security features \cite{b1}. However, the complexity of modern network threats, particularly DDoS attacks, requires sophisticated detection mechanisms that can distinguish between legitimate congestion and malicious traffic patterns.
+Private Software-Defined Wide Area Networks (Private SD-WAN) have emerged as a solution to these challenges by providing centralized traffic management, quality of service (QoS) enforcement, and enhanced security features within a dedicated, isolated network infrastructure \cite{b1}. Unlike public SD-WAN solutions that route traffic over the public internet, private SD-WAN operates over dedicated circuits, offering superior security and consistent performance. However, the complexity of modern network threats, particularly DDoS attacks, requires sophisticated detection mechanisms that can distinguish between legitimate congestion and malicious traffic patterns.
 
 This paper presents a simulation framework that addresses the following key objectives:
 
@@ -81,7 +64,7 @@ Shannon Entropy has been widely adopted for DDoS detection due to its ability to
 
 \subsection{Network Topology}
 
-Our simulation models a hospital network with the following components:
+Our simulation models a hospital's private SD-WAN network with the following components:
 
 \begin{itemize}
     \item \textbf{Server Room}: Central data center with high-capacity links (5000 Mbps)
@@ -97,29 +80,7 @@ Our simulation models a hospital network with the following components:
 
 The simulation generates diverse traffic categories:
 
-\begin{table}[htbp]
-\caption{Traffic Types in Hospital Network Simulation}
-\begin{center}
-\begin{tabular}{|l|l|l|}
-\hline
-\textbf{Type} & \textbf{Description} & \textbf{Bandwidth} \\
-\hline
-EMR & Electronic Medical Records & 100-600 Mbps \\
-\hline
-DICOM & Medical Imaging & 500-2500 Mbps \\
-\hline
-VOIP & Voice Communications & 50-500 Mbps \\
-\hline
-IOT & Medical Device Telemetry & 1-5 Mbps \\
-\hline
-GUEST & Public WiFi Traffic & 50-400 Mbps \\
-\hline
-ATTACK & DDoS Attack Traffic & 4000 Mbps \\
-\hline
-\end{tabular}
-\label{tab1}
-\end{center}
-\end{table}
+
 
 \section{Algorithms and Implementation}
 
@@ -137,17 +98,16 @@ where $\alpha = 0.125$ (following TCP RTT estimation conventions). This smoothin
 
 The Token Bucket algorithm implements traffic shaping with burst tolerance:
 
-\begin{algorithmic}
-\STATE $tokens \gets \min(bucket\_capacity, tokens + capacity \times dt)$
-\STATE $needed \gets load \times dt$
-\IF{$needed > tokens$}
-    \STATE $packet\_loss \gets (needed - tokens) / needed$
-    \STATE $tokens \gets 0$
-\ELSE
-    \STATE $tokens \gets tokens - needed$
-    \STATE $packet\_loss \gets 0$
-\ENDIF
-\end{algorithmic}
+\begin{verbatim}
+tokens = min(capacity, tokens + rate * dt)
+needed = load * dt
+if needed > tokens:
+    packet_loss = (needed - tokens) / needed
+    tokens = 0
+else:
+    tokens = tokens - needed
+    packet_loss = 0
+\end{verbatim}
 
 The bucket capacity is set to 50\% of link capacity, allowing controlled bursting while preventing sustained overload.
 
@@ -182,13 +142,13 @@ where $x$ is the current load, $\mu$ is the mean load over a sliding window, and
 We propose a composite Congestion Severity Score combining multiple metrics:
 
 \begin{equation}
-CSS = 0.5 \cdot D_f + 0.3 \cdot L_f + 0.2 \cdot E_f
+CSS = 0.5 \cdot D_f + 20.0 \cdot L_f + 2.0 \cdot E_f
 \end{equation}
 
 where:
 \begin{itemize}
     \item $D_f$ = Delay Factor = $\min(3.0, RTT_{ewma} / RTT_{base})$
-    \item $L_f$ = Loss Factor = $packet\_loss \times 10$
+    \item $L_f$ = Loss Factor = $packet\_loss$ (0.0 to 1.0)
     \item $E_f$ = Entropy Factor = $1.0 - entropy$
 \end{itemize}
 
@@ -196,60 +156,81 @@ A CSS value exceeding 4.0 triggers a critical congestion alert.
 
 \section{Implementation Details}
 
-\subsection{Backend Architecture}
+\subsection{Simulation Engine}
 
-The simulation backend is implemented in Python using the following technologies:
+The core simulation engine is implemented in \textbf{JavaScript} to enable client-side execution within the web browser. This architecture eliminates the need for a dedicated backend server, reducing latency and deployment complexity. Key components include:
 
 \begin{itemize}
-    \item \textbf{Flask}: RESTful API server for frontend communication
-    \item \textbf{NetworkX}: Graph-based network topology modeling
-    \item \textbf{Threading}: Background simulation loop at 20 Hz update rate
+    \item \textbf{Object-Oriented Design}: encapsulation of Link, Node, and Traffic logic.
+    \item \textbf{Graph Traversal}: Custom Breadth-First Search (BFS) for shortest-path routing.
+    \item \textbf{Event Loop}: \texttt{requestAnimationFrame} based loop running at 20 Hz (50ms interval) for real-time fidelity.
 \end{itemize}
 
-\begin{lstlisting}[caption={Core Simulation Loop}]
-def run_simulation():
-    while True:
-        if sim.running:
-            sim.update()
-        time.sleep(0.05)  # 20 Hz
-\end{lstlisting}
+\begin{verbatim}
+const loop = (timestamp) => {
+  const elapsed = timestamp - lastTime
+  if (elapsed >= 50) { // 20 Hz
+     sim.update()
+     lastTime = timestamp
+  }
+  requestAnimationFrame(loop)
+}
+\end{verbatim}
 
 \subsection{Frontend Visualization}
 
-The web-based frontend is built using:
+The web-based interface is built using:
 
 \begin{itemize}
     \item \textbf{React}: Component-based UI framework
-    \item \textbf{Vite}: Build tool with hot module replacement
+    \item \textbf{Vite}: Optimized build tool
     \item \textbf{SVG}: Scalable vector graphics for network topology
-    \item \textbf{Framer Motion}: Animation library for smooth transitions
+    \item \textbf{Framer Motion}: Fluid animations for UI elements
 \end{itemize}
 
 Key visualization features include:
 \begin{itemize}
-    \item Real-time topology display with draggable nodes
-    \item Color-coded congestion levels (Blue < Green < Orange < Red)
-    \item Animated packet flow along network links
-    \item Terminal-style log viewer for system alerts
+    \item Real-time topology display
+    \item Dynamic congestion color-coding (Green $\rightarrow$ Red)
+    \item Live scrolling system logs
+    \item Real-time charts for Throughput and Entropy
 \end{itemize}
 
-\subsection{API Endpoints}
+% Table 2 (API) removed as architecture is now serverless
+
+\section{Results and Analysis}
+
+\subsection{Traffic Types}
+
+The simulation generates diverse traffic categories to mimic realistic hospital loads:
 
 \begin{table}[htbp]
-\caption{REST API Endpoints}
+\caption{Traffic Types in Hospital Network Simulation}
 \begin{center}
 \begin{tabular}{|l|l|l|}
 \hline
-\textbf{Endpoint} & \textbf{Method} & \textbf{Description} \\
+\textbf{Type} & \textbf{Description} & \textbf{Bandwidth} \\
 \hline
-/api/state & GET & Current simulation state \\
+EMR & Electronic Medical Records & 100-600 Mbps \\
 \hline
-/api/control & POST & Start/Stop/Reset simulation \\
+DICOM & Medical Imaging & 500-2500 Mbps \\
 \hline
-/api/trigger & POST & Trigger DDoS attack \\
+VOIP & Voice Communications & 50-500 Mbps \\
+\hline
+IOT & Medical Device Telemetry & 1-5 Mbps \\
+\hline
+GUEST & Public WiFi Traffic & 50-400 Mbps \\
+\hline
+DNS & Domain Name Service & 1-5 Mbps \\
+\hline
+HTTP & Web Traffic & 10-50 Mbps \\
+\hline
+NTP & Time Synchronization & <1 Mbps \\
+\hline
+ATTACK & DDoS Attack Traffic & 4000+ Mbps \\
 \hline
 \end{tabular}
-\label{tab2}
+\label{tab1}
 \end{center}
 \end{table}
 
