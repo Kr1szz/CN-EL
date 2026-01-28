@@ -1,3 +1,15 @@
+"""
+Private SD-WAN Real-Time Traffic Analysis Dashboard
+
+Live animated visualization showing:
+1. Network Load (Throughput over time)
+2. Shannon Entropy (Anomaly detection)
+3. Packet Loss (QoS impact)
+4. Internal Threat Sources (Attack origin monitoring)
+
+Run: python analysis/realtime_plot.py
+"""
+
 import sys
 import os
 import time
@@ -5,7 +17,6 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
 from collections import deque
-import heapq
 
 # Add parent directory to path to import simulation
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -13,7 +24,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 try:
     from simulation import NetworkSimulation
 except ImportError:
-    # Auto-healing: Try to switch to venv python if networkx/simulation is missing
     print("Dependencies missing. Attempting to switch to virtual environment...")
     venv_python = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'venv', 'bin', 'python'))
     if os.path.exists(venv_python) and sys.executable != venv_python:
@@ -22,196 +32,261 @@ except ImportError:
         print("CRITICAL ERROR: Missing Dependencies. Please run ./analysis/run.sh realtime")
         sys.exit(1)
 
-# Configuration
-DURATION_SEC = 40
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+DURATION_SEC = 45  # Total duration: Normal(15s) + Congested(15s) + DDoS(15s)
 FPS = 10
 TOTAL_FRAMES = DURATION_SEC * FPS
-WINDOW_SIZE = 300 # Keep last 300 points (30 seconds) for sliding window
-# If user wants "linear" in the sense of "showing all history linearly until 40s", we can set maxlen to TOTAL_FRAMES
-# But sliding window is better for "realtime". Let's set it to TOTAL_FRAMES to show full 40s context if space permits, 
-# or just ensure scrolling works.
-# User said "fix time graph... not visible after congestion". This implies scrolling broke.
-# Let's simple keep ALL history for the 40s duration (it's short enough) to avoid complexity.
-# deque is still good practice.
 
+# Internal threat sources for private SD-WAN
+THREAT_SOURCES = {
+    "Public-Wifi": {"ip": "10.0.3.50", "type": "Guest AP", "level": 3},      # HIGH
+    "Lab": {"ip": "10.0.2.20", "type": "Compromised IoT", "level": 2},        # MEDIUM
+    "Wards": {"ip": "10.0.3.20", "type": "Bedside Terminal", "level": 2},     # MEDIUM
+    "OT-1": {"ip": "10.0.1.30", "type": "Surgical Device", "level": 1}        # LOW
+}
+
+# ============================================================================
+# SIMULATION SETUP
+# ============================================================================
 sim = NetworkSimulation()
 sim.running = True
 
-# Data Storage using Deque
+# Data storage
 history = {
     'time': deque(maxlen=TOTAL_FRAMES),
     'load': deque(maxlen=TOTAL_FRAMES),
     'entropy': deque(maxlen=TOTAL_FRAMES),
-    'class_load': {
-        'Gold': deque(maxlen=TOTAL_FRAMES), 
-        'Silver': deque(maxlen=TOTAL_FRAMES), 
-        'Bronze': deque(maxlen=TOTAL_FRAMES)
-    },
-    'class_drops': {
-        'Gold': deque(maxlen=TOTAL_FRAMES), 
-        'Silver': deque(maxlen=TOTAL_FRAMES), 
-        'Bronze': deque(maxlen=TOTAL_FRAMES)
-    }
+    'loss': deque(maxlen=TOTAL_FRAMES),
 }
 
-# Setup Plot: 2x2 Grid
-fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 8))
-plt.subplots_adjust(hspace=0.4, wspace=0.3)
+# ============================================================================
+# PLOT SETUP - Dark Theme 2x2 Grid
+# ============================================================================
+plt.style.use('dark_background')
+fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 9))
+fig.suptitle('Private SD-WAN: Real-Time Internal Threat Detection', fontsize=14, fontweight='bold', color='#e0e0e0')
+plt.subplots_adjust(hspace=0.35, wspace=0.25, top=0.92)
 
-# Style helper
-def set_style(ax, title, ylabel):
-    ax.set_title(title, fontweight='bold', fontsize=10)
-    ax.set_ylabel(ylabel, fontsize=9)
-    ax.grid(True, linestyle=':', alpha=0.6)
-    ax.tick_params(axis='both', which='major', labelsize=8)
+# Colors
+COLORS = {
+    'NORMAL': '#22c55e',
+    'CONGESTED': '#f59e0b',
+    'DDOS': '#ef4444',
+    'load': '#3b82f6',
+    'entropy': '#a855f7',
+    'loss': '#ef4444',
+    'grid': '#334155'
+}
 
-set_style(ax1, "1. SYSTEM LOAD (Throughput)", "Mbps")
-set_style(ax2, "2. ANOMALY DETECTION (Entropy)", "Shannon Entropy")
-set_style(ax3, "3. BANDWIDTH BATTLE (By Class)", "Throughput (Mbps)")
-set_style(ax4, "4. PACKET DROPS (Cumulative)", "Total Drops")
+def setup_ax(ax, title, ylabel):
+    ax.set_title(title, fontweight='bold', fontsize=10, color='#e0e0e0')
+    ax.set_ylabel(ylabel, fontsize=9, color='#94a3b8')
+    ax.set_xlabel('Time (s)', fontsize=8, color='#64748b')
+    ax.grid(True, linestyle='--', alpha=0.3, color=COLORS['grid'])
+    ax.tick_params(colors='#94a3b8')
+    ax.set_facecolor('#0f172a')
+    for spine in ax.spines.values():
+        spine.set_color('#334155')
 
-# Lines
-line_load, = ax1.plot([], [], color='#2563eb', linewidth=2, label='Total')
-line_entropy, = ax2.plot([], [], color='#9333ea', linewidth=2, label='System')
-ax2.axhline(y=0.5, color='red', linestyle='--', linewidth=1, label='Threshold')
+setup_ax(ax1, '📊 Network Load (Throughput)', 'Mbps')
+setup_ax(ax2, '🔐 Shannon Entropy (Anomaly Detection)', 'Entropy (0-1)')
+setup_ax(ax3, '📉 Packet Loss (QoS Impact)', 'Loss Rate')
 
-# Bandwidth Battle Lines
-colors = {'Gold': '#FFD700', 'Silver': '#A9A9A9', 'Bronze': '#CD7F32'}
-lines_bb = {}
-for cls, color in colors.items():
-    lines_bb[cls], = ax3.plot([], [], color=color, linewidth=2, label=cls)
-ax3.legend(loc='upper left', fontsize=8)
+# Initialize lines
+line_load, = ax1.plot([], [], color=COLORS['load'], linewidth=2, label='Total Load')
+fill_load = None
 
-# Drop Bars (Container)
-# We will redraw bars every frame or update heights
+line_entropy, = ax2.plot([], [], color=COLORS['entropy'], linewidth=2, label='System Entropy')
+ax2.axhline(y=0.5, color='#ef4444', linestyle='--', linewidth=1.5, alpha=0.7, label='Anomaly Threshold')
+ax2.set_ylim(0, 1.1)
+ax2.legend(loc='lower left', fontsize=7)
 
+line_loss, = ax3.plot([], [], color=COLORS['loss'], linewidth=2, label='Max Link Loss')
+ax3.set_ylim(0, 1.0)
+
+# Threat sources bar chart (static base)
+ax4.set_title('⚠️ Internal Attack Sources (Private Network)', fontweight='bold', fontsize=10, color='#e0e0e0')
+ax4.set_facecolor('#0f172a')
+for spine in ax4.spines.values():
+    spine.set_color('#334155')
+
+# Mode indicator text
+mode_text = fig.text(0.5, 0.96, 'MODE: INITIALIZING', ha='center', fontsize=11, 
+                     fontweight='bold', color='#64748b',
+                     bbox=dict(boxstyle='round', facecolor='#1e293b', edgecolor='#334155'))
+
+# ============================================================================
+# ANIMATION UPDATE FUNCTION
+# ============================================================================
 def update(frame):
-    # 1. Update Simulation Mode
+    global fill_load
+    
     current_time = frame / FPS
     
-    if current_time < 10:
+    # Determine mode based on time phase
+    if current_time < 15:
         mode = "NORMAL"
-        color_bg = '#dcfce7' # Light Green
-    elif current_time < 25:
+        mode_color = COLORS['NORMAL']
+        phase_alpha = 0.1
+    elif current_time < 30:
         mode = "CONGESTED"
-        color_bg = '#ffedd5' # Light Orange
+        mode_color = COLORS['CONGESTED']
+        phase_alpha = 0.15
     else:
         mode = "DDOS"
-        color_bg = '#fee2e2' # Light Red
-        
+        mode_color = COLORS['DDOS']
+        phase_alpha = 0.2
+    
+    # Update simulation
     sim.traffic_mode = mode
     sim.update()
     state = sim.get_state()
     
-    # 2. Extract Metrics
+    # Extract metrics
     history['time'].append(current_time)
-    
-    # Global Stats
     history['load'].append(state['global_stats']['total_throughput_mbps'])
     history['entropy'].append(state['global_stats']['avg_system_entropy'])
     
-    # Class Stats (Aggregated from all links)
-    # We need to calculate this from link stats
-    c_load = {'Gold': 0, 'Silver': 0, 'Bronze': 0}
-    c_drops = {'Gold': 0, 'Silver': 0, 'Bronze': 0}
+    # Max packet loss
+    max_loss = max([l['packet_loss'] for l in state['links']]) / 100 if state['links'] else 0
+    history['loss'].append(max_loss)
     
-    # Need to modify simulation.py to expose real-time class throughput easily
-    # Or iterate links here. iterating links is fine.
-    for l in sim.links.values():
-        # Heuristic: Distribute current load based on active_traffic types
-        # simulation.py doesn't store per-class throughput history on link, only drops/served count
-        # served count is monotonic increasing. We can take delta.
-        c_drops['Gold'] += l.gold_drops
-        c_drops['Silver'] += l.silver_drops
-        c_drops['Bronze'] += l.bronze_drops
+    # Update mode indicator
+    mode_text.set_text(f'MODE: {mode}')
+    mode_text.set_color(mode_color)
+    
+    # Time data
+    times = list(history['time'])
+    x_max = max(10, current_time + 2)
+    
+    # ========================
+    # PLOT 1: Network Load
+    # ========================
+    ax1.clear()
+    setup_ax(ax1, '📊 Network Load (Throughput)', 'Mbps')
+    ax1.set_xlim(0, x_max)
+    
+    loads = list(history['load'])
+    if loads:
+        ax1.set_ylim(0, max(max(loads) * 1.1, 1000))
+        ax1.fill_between(times, loads, alpha=0.3, color=COLORS['load'])
+        ax1.plot(times, loads, color=COLORS['load'], linewidth=2)
         
-        # Estimate throughput from served counts (approximation for viz)
-        # or better: re-sum active_traffic based on priority map
-        # But active_traffic is "offered load", not served.
-        # Let's use served counts delta!
-        pass
-
-    # DELTA CALCULATION for Throughput
-    # We need to store previous totals to get delta
-    if not hasattr(update, 'prev_served'):
-        update.prev_served = {'Gold': 0, 'Silver': 0, 'Bronze': 0}
+        # Current value annotation
+        ax1.annotate(f'{loads[-1]:.0f} Mbps', xy=(times[-1], loads[-1]),
+                    xytext=(10, 10), textcoords='offset points',
+                    fontsize=9, color=COLORS['load'], fontweight='bold')
+    
+    # Phase backgrounds
+    ax1.axvspan(0, 15, color=COLORS['NORMAL'], alpha=0.05)
+    ax1.axvspan(15, 30, color=COLORS['CONGESTED'], alpha=0.05)
+    ax1.axvspan(30, 45, color=COLORS['DDOS'], alpha=0.05)
+    
+    # ========================
+    # PLOT 2: Entropy
+    # ========================
+    ax2.clear()
+    setup_ax(ax2, '🔐 Shannon Entropy (Anomaly Detection)', 'Entropy (0-1)')
+    ax2.set_xlim(0, x_max)
+    ax2.set_ylim(0, 1.1)
+    ax2.axhline(y=0.5, color='#ef4444', linestyle='--', linewidth=1.5, alpha=0.7, label='Threshold')
+    
+    entropies = list(history['entropy'])
+    if entropies:
+        # Color based on current entropy
+        ent_color = COLORS['DDOS'] if entropies[-1] < 0.5 else (COLORS['CONGESTED'] if entropies[-1] < 0.7 else COLORS['entropy'])
+        ax2.fill_between(times, entropies, alpha=0.2, color=ent_color)
+        ax2.plot(times, entropies, color=ent_color, linewidth=2)
         
-    curr_served = {'Gold': 0, 'Silver': 0, 'Bronze': 0}
-    for l in sim.links.values():
-        curr_served['Gold'] += l.gold_served
-        curr_served['Silver'] += l.silver_served
-        curr_served['Bronze'] += l.bronze_served
+        # Annotation
+        status = "⚠️ ANOMALY" if entropies[-1] < 0.5 else "✓ Normal"
+        ax2.annotate(f'{entropies[-1]:.2f} {status}', xy=(times[-1], entropies[-1]),
+                    xytext=(10, -15), textcoords='offset points',
+                    fontsize=9, color=ent_color, fontweight='bold')
+    
+    ax2.axvspan(0, 15, color=COLORS['NORMAL'], alpha=0.05)
+    ax2.axvspan(15, 30, color=COLORS['CONGESTED'], alpha=0.05)
+    ax2.axvspan(30, 45, color=COLORS['DDOS'], alpha=0.05)
+    ax2.legend(loc='lower left', fontsize=7)
+    
+    # ========================
+    # PLOT 3: Packet Loss
+    # ========================
+    ax3.clear()
+    setup_ax(ax3, '📉 Packet Loss (QoS Impact)', 'Loss Rate')
+    ax3.set_xlim(0, x_max)
+    ax3.set_ylim(0, 1.0)
+    
+    losses = list(history['loss'])
+    if losses:
+        ax3.fill_between(times, losses, alpha=0.4, color=COLORS['loss'])
+        ax3.plot(times, losses, color=COLORS['loss'], linewidth=2)
         
-    # Delta * Packet Size (Avg 1500 bytes * 8 bits) / Time Step
-    # Time step is ~0.1s (sim.update runs once per visual frame? No, sim.update is called here)
-    # Simulator likely runs faster internally or we assume 1 tick.
-    # We'll just map raw packets/tick to "Mbps" for visualization scale
-    scale = 0.5 
+        ax3.annotate(f'{losses[-1]*100:.1f}%', xy=(times[-1], losses[-1]),
+                    xytext=(10, 5), textcoords='offset points',
+                    fontsize=9, color=COLORS['loss'], fontweight='bold')
     
-    for cls in ['Gold', 'Silver', 'Bronze']:
-        delta = curr_served[cls] - update.prev_served[cls]
-        history['class_load'][cls].append(delta * scale * 100) # Scaling for visibility
-        history['class_drops'][cls].append(c_drops[cls])
-        
-    update.prev_served = curr_served
-
-    # 3. Update Plots
+    ax3.axvspan(0, 15, color=COLORS['NORMAL'], alpha=0.05)
+    ax3.axvspan(15, 30, color=COLORS['CONGESTED'], alpha=0.05)
+    ax3.axvspan(30, 45, color=COLORS['DDOS'], alpha=0.05)
     
-    # SCROLLING X-AXIS HANDLING
-    # Strategy: Show full history up to 40s since it fits on screen easily.
-    # If we wanted scrolling, we'd check current_time > window.
-    
-    x_max = max(10, current_time)
-    x_min = 0 # Fixed start for linear progression over 40s
-    
-    # Update axes limits
-    for ax in [ax1, ax2, ax3]:
-        ax.set_xlim(x_min, x_max + 1) # +1 for breathing room
-        ax.patch.set_facecolor(color_bg)
-        ax.patch.set_alpha(0.3)
-        
-    # Plot 1: Load
-    line_load.set_data(list(history['time']), list(history['load']))
-    if len(history['load']) > 0:
-        ax1.set_ylim(0, max(max(history['load'])*1.1, 10000))
-    
-    # Plot 2: Entropy
-    line_entropy.set_data(list(history['time']), list(history['entropy']))
-    
-    # Plot 3: Bandwidth Battle
-    for cls in ['Gold', 'Silver', 'Bronze']:
-        lines_bb[cls].set_data(list(history['time']), list(history['class_load'][cls]))
-    
-    # Auto-scale Y for Bandwidth
-    all_bw = []
-    for cls in ['Gold', 'Silver', 'Bronze']:
-        all_bw.extend(history['class_load'][cls])
-        
-    if all_bw:
-        ax3.set_ylim(0, max(all_bw) * 1.1)
-        
-    # Plot 4: Drops (Bar Chart)
+    # ========================
+    # PLOT 4: Internal Threat Sources
+    # ========================
     ax4.clear()
-    set_style(ax4, "4. PACKET DROPS (Cumulative)", "Total Drops")
-    ax4.patch.set_facecolor(color_bg)
-    ax4.patch.set_alpha(0.3)
+    ax4.set_title('⚠️ Internal Attack Sources (Private Network)', fontweight='bold', fontsize=10, color='#e0e0e0')
+    ax4.set_facecolor('#0f172a')
+    for spine in ax4.spines.values():
+        spine.set_color('#334155')
     
-    classes = ['Gold', 'Silver', 'Bronze']
-    # Get latest values
-    drop_counts = [history['class_drops'][c][-1] if history['class_drops'][c] else 0 for c in classes]
-    bars = ax4.bar(classes, drop_counts, color=[colors[c] for c in classes])
+    sources = list(THREAT_SOURCES.keys())
+    levels = [THREAT_SOURCES[s]['level'] for s in sources]
+    colors = [COLORS['DDOS'] if l == 3 else COLORS['CONGESTED'] if l == 2 else COLORS['NORMAL'] for l in levels]
     
-    # Add values on top
-    for bar in bars:
-        height = bar.get_height()
-        ax4.text(bar.get_x() + bar.get_width()/2., height,
-                 f'{int(height)}',
-                 ha='center', va='bottom', fontsize=9)
+    # Highlight active sources during DDoS
+    alphas = [1.0 if mode == 'DDOS' else 0.4 for _ in sources]
+    
+    bars = ax4.barh(sources, levels, color=colors, alpha=1.0 if mode == 'DDOS' else 0.5, edgecolor='white', linewidth=0.5)
+    ax4.set_xlim(0, 4)
+    ax4.set_xticks([1, 2, 3])
+    ax4.set_xticklabels(['LOW', 'MEDIUM', 'HIGH'], color='#94a3b8')
+    ax4.tick_params(colors='#94a3b8')
+    
+    # Add IP annotations
+    for i, (source, info) in enumerate(THREAT_SOURCES.items()):
+        ax4.annotate(f'{info["ip"]} ({info["type"]})', 
+                    xy=(levels[i] + 0.1, i),
+                    fontsize=8, color='#94a3b8', va='center')
+    
+    # Status indicator
+    status_text = "🔴 ATTACK ACTIVE" if mode == 'DDOS' else "🟡 MONITORING" if mode == 'CONGESTED' else "🟢 NORMAL"
+    ax4.text(0.5, -0.15, status_text, transform=ax4.transAxes, fontsize=10, 
+            color=mode_color, ha='center', fontweight='bold')
+    
+    ax4.text(0.5, -0.25, 'Private SD-WAN: Threats originate from internal compromised devices', 
+            transform=ax4.transAxes, fontsize=7, color='#64748b', ha='center')
+    
+    # Progress indicator
+    progress = (frame + 1) / TOTAL_FRAMES * 100
+    if frame == TOTAL_FRAMES - 1:
+        print(f"\n✓ Simulation Complete!")
+        print(f"  Final Entropy: {entropies[-1]:.3f}")
+        print(f"  Peak Load: {max(loads):.0f} Mbps")
+    
+    return []
 
-    # Stop after duration
-    if frame >= TOTAL_FRAMES - 1:
-        print("Simulation Complete.")
+# ============================================================================
+# RUN ANIMATION
+# ============================================================================
+print("="*60)
+print("Private SD-WAN Real-Time Traffic Analysis")
+print("="*60)
+print(f"Duration: {DURATION_SEC}s | Phases: Normal(15s) → Congested(15s) → DDoS(15s)")
+print("Starting...")
+print("")
 
-print(f"Starting DASHBOARD Simulation for {DURATION_SEC} seconds...")
-ani = animation.FuncAnimation(fig, update, frames=TOTAL_FRAMES, interval=1000/FPS, repeat=False)
+ani = animation.FuncAnimation(fig, update, frames=TOTAL_FRAMES, interval=1000/FPS, repeat=False, blit=False)
+plt.tight_layout(rect=[0, 0.03, 1, 0.92])
 plt.show()

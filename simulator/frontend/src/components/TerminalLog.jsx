@@ -2,73 +2,77 @@
 import { useState, useEffect, useRef } from 'react'
 
 const TerminalLog = ({ alerts }) => {
-    const logRef = useRef(null)
-    const [autoScroll, setAutoScroll] = useState(true)
+  const logRef = useRef(null)
+  const [autoScroll, setAutoScroll] = useState(true)
 
-    useEffect(() => {
-        if (autoScroll && logRef.current) {
-            logRef.current.scrollTop = logRef.current.scrollHeight
-        }
-    }, [alerts, autoScroll])
-
-    const formatLog = (alert) => {
-        const levelColors = {
-            CRITICAL: '#ef4444',
-            WARNING: '#f59e0b',
-            INFO: '#3b82f6'
-        }
-        return {
-            color: levelColors[alert.level] || '#64748b',
-            prefix: alert.level === 'CRITICAL' ? '[CRIT]' : alert.level === 'WARNING' ? '[WARN]' : '[INFO]'
-        }
+  useEffect(() => {
+    if (autoScroll && logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight
     }
+  }, [alerts, autoScroll])
 
-    return (
-        <div className="terminal-container">
-            <div className="terminal-header">
-                <div className="terminal-title">
-                    <span className="terminal-dot red"></span>
-                    <span className="terminal-dot yellow"></span>
-                    <span className="terminal-dot green"></span>
-                    <span>network-monitor.log</span>
-                </div>
-                <label className="auto-scroll">
-                    <input
-                        type="checkbox"
-                        checked={autoScroll}
-                        onChange={(e) => setAutoScroll(e.target.checked)}
-                    />
-                    Auto-scroll
-                </label>
+  const formatLog = (alert) => {
+    const levelColors = {
+      CRITICAL: '#ef4444',
+      WARNING: '#f59e0b',
+      INFO: '#3b82f6'
+    }
+    return {
+      color: levelColors[alert.level] || '#64748b',
+      prefix: alert.level === 'CRITICAL' ? '[CRIT]' : alert.level === 'WARNING' ? '[WARN]' : '[INFO]'
+    }
+  }
+
+  return (
+    <div className="terminal-container">
+      <div className="terminal-header">
+        <div className="terminal-title">
+          <span className="terminal-dot red"></span>
+          <span className="terminal-dot yellow"></span>
+          <span className="terminal-dot green"></span>
+          <span>network-monitor.log</span>
+        </div>
+        <label className="auto-scroll">
+          <input
+            type="checkbox"
+            checked={autoScroll}
+            onChange={(e) => setAutoScroll(e.target.checked)}
+          />
+          Auto-scroll
+        </label>
+      </div>
+      <div className="terminal-body" ref={logRef}>
+        <div className="log-line system">
+          <span className="timestamp">[SYSTEM]</span>
+          <span className="message">Private SD-WAN Congestion Detection System v2.0</span>
+        </div>
+        <div className="log-line system">
+          <span className="timestamp">[SYSTEM]</span>
+          <span className="message">Network: 10.0.0.0/8 (RFC1918) | VLANs: 100-199 | Mode: Internal Threat Monitoring</span>
+        </div>
+        <div className="log-line system">
+          <span className="timestamp">[SYSTEM]</span>
+          <span className="message">Algorithms: EWMA, Shannon Entropy, Z-Score, Token Bucket | MITRE ATT&CK: T1498, T1499</span>
+        </div>
+        <div className="log-line divider">{'─'.repeat(60)}</div>
+
+        {alerts.map((alert, idx) => {
+          const fmt = formatLog(alert)
+          return (
+            <div key={idx} className="log-line">
+              <span className="timestamp">[{alert.time}]</span>
+              <span className="level" style={{ color: fmt.color }}>{fmt.prefix}</span>
+              <span className="message">{alert.msg}</span>
             </div>
-            <div className="terminal-body" ref={logRef}>
-                <div className="log-line system">
-                    <span className="timestamp">[SYSTEM]</span>
-                    <span className="message">SD-WAN Congestion Detection System v1.0</span>
-                </div>
-                <div className="log-line system">
-                    <span className="timestamp">[SYSTEM]</span>
-                    <span className="message">Monitoring initialized. Algorithms: EWMA, Shannon Entropy, Z-Score, Token Bucket</span>
-                </div>
-                <div className="log-line divider">{'─'.repeat(60)}</div>
+          )
+        })}
 
-                {alerts.map((alert, idx) => {
-                    const fmt = formatLog(alert)
-                    return (
-                        <div key={idx} className="log-line">
-                            <span className="timestamp">[{alert.time}]</span>
-                            <span className="level" style={{ color: fmt.color }}>{fmt.prefix}</span>
-                            <span className="message">{alert.msg}</span>
-                        </div>
-                    )
-                })}
+        <div className="cursor-line">
+          <span className="cursor">▌</span>
+        </div>
+      </div>
 
-                <div className="cursor-line">
-                    <span className="cursor">▌</span>
-                </div>
-            </div>
-
-            <style>{`
+      <style>{`
         .terminal-container {
           background: #0c0c0c;
           border-radius: 8px;
@@ -137,8 +141,8 @@ const TerminalLog = ({ alerts }) => {
           51%, 100% { opacity: 0; }
         }
       `}</style>
-        </div>
-    )
+    </div>
+  )
 }
 
 export default TerminalLog

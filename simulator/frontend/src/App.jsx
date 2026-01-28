@@ -9,6 +9,7 @@ import TerminalLog from './components/TerminalLog'
 import NetworkPulse from './components/NetworkPulse'
 import EntropyGraph from './components/EntropyGraph'
 import QoSPanel from './components/QoSPanel'
+import RealTimeAnalytics from './components/RealTimeAnalytics'
 
 
 import { NetworkSimulation } from './simulation/NetworkSimulation'
@@ -246,9 +247,12 @@ function App() {
             </div>
 
             <div className="graphs-section">
-              <NetworkPulse throughput={data.global_stats.total_throughput_mbps} />
-              <EntropyGraph entropy={data.global_stats.avg_system_entropy} />
-              <QoSPanel links={data.links} />
+              <RealTimeAnalytics
+                throughput={data.global_stats.total_throughput_mbps}
+                entropy={data.global_stats.avg_system_entropy}
+                links={data.links}
+                trafficMode={trafficMode}
+              />
             </div>
           </aside>
         </div>

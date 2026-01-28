@@ -49,6 +49,46 @@ TRAFFIC_PRIORITY_MAP = {
     TrafficType.NTP: TrafficPriority.GOLD,   # Critical infra
 }
 
+# ============================================================================
+# DEVICE REGISTRY - Real-world network identifiers for realistic logging
+# Private SD-WAN uses RFC 1918 private IP ranges (10.x.x.x)
+# ============================================================================
+DEVICE_REGISTRY = {
+    "Server Room": {"ip": "10.0.0.1", "mac": "00:1A:2B:3C:4D:01", "hostname": "srv-dc-01", "vlan": 100},
+    "ICU-A": {"ip": "10.0.1.10", "mac": "00:1A:2B:3C:4D:10", "hostname": "icu-a-gw", "vlan": 110},
+    "ICU-B": {"ip": "10.0.1.20", "mac": "00:1A:2B:3C:4D:20", "hostname": "icu-b-gw", "vlan": 110},
+    "OT-1": {"ip": "10.0.1.30", "mac": "00:1A:2B:3C:4D:30", "hostname": "ot-surgical-01", "vlan": 115},
+    "Radiology": {"ip": "10.0.2.10", "mac": "00:1A:2B:3C:4D:40", "hostname": "rad-pacs-gw", "vlan": 120},
+    "Lab": {"ip": "10.0.2.20", "mac": "00:1A:2B:3C:4D:50", "hostname": "lab-lis-gw", "vlan": 125},
+    "Admin": {"ip": "10.0.3.10", "mac": "00:1A:2B:3C:4D:60", "hostname": "admin-sw-01", "vlan": 130},
+    "Wards": {"ip": "10.0.3.20", "mac": "00:1A:2B:3C:4D:70", "hostname": "ward-sw-01", "vlan": 135},
+    "Public-Wifi": {"ip": "10.0.3.50", "mac": "00:1A:2B:3C:4D:80", "hostname": "guest-wifi-ap", "vlan": 199},
+}
+
+# Internal threat scenarios for private SD-WAN
+THREAT_TYPES = {
+    "COMPROMISED_IOT": "Compromised IoT",
+    "LATERAL_MOVEMENT": "Lateral Movement",
+    "INSIDER_THREAT": "Insider Threat",
+    "DATA_EXFIL": "Data Exfiltration",
+}
+
+# Simulated compromised IoT devices (internal threat sources)
+COMPROMISED_IOT_DEVICES = [
+    {"ip": "10.0.1.45", "hostname": "icu-infusion-pump-03", "type": "Infusion Pump"},
+    {"ip": "10.0.1.46", "hostname": "icu-patient-monitor-07", "type": "Patient Monitor"},
+    {"ip": "10.0.2.33", "hostname": "lab-analyzer-02", "type": "Blood Analyzer"},
+    {"ip": "10.0.3.88", "hostname": "ward-bedside-terminal-12", "type": "Bedside Terminal"},
+    {"ip": "10.0.3.52", "hostname": "guest-laptop-infected", "type": "Guest Device"},
+]
+
+def get_random_compromised_device():
+    return random.choice(COMPROMISED_IOT_DEVICES)
+
+def get_device_info(node_id):
+    return DEVICE_REGISTRY.get(node_id, {"ip": "10.0.0.0", "mac": "00:00:00:00:00:00", "hostname": "unknown", "vlan": 0})
+
+
 class Link:
     def __init__(self, source, target, capacity_mbps, base_latency_ms):
         self.source = source

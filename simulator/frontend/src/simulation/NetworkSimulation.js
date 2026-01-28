@@ -45,6 +45,95 @@ const PRIORITY_WEIGHTS = {
     [TrafficPriority.BRONZE]: 1.0
 };
 
+// ============================================================================
+// DEVICE REGISTRY - Real-world network identifiers for realistic logging
+// Private SD-WAN uses RFC 1918 private IP ranges (10.x.x.x)
+// ============================================================================
+const DEVICE_REGISTRY = {
+    "Server Room": {
+        ip: "10.0.0.1",
+        mac: "00:1A:2B:3C:4D:01",
+        hostname: "srv-dc-01",
+        vlan: 100
+    },
+    "ICU-A": {
+        ip: "10.0.1.10",
+        mac: "00:1A:2B:3C:4D:10",
+        hostname: "icu-a-gw",
+        vlan: 110
+    },
+    "ICU-B": {
+        ip: "10.0.1.20",
+        mac: "00:1A:2B:3C:4D:20",
+        hostname: "icu-b-gw",
+        vlan: 110
+    },
+    "OT-1": {
+        ip: "10.0.1.30",
+        mac: "00:1A:2B:3C:4D:30",
+        hostname: "ot-surgical-01",
+        vlan: 115
+    },
+    "Radiology": {
+        ip: "10.0.2.10",
+        mac: "00:1A:2B:3C:4D:40",
+        hostname: "rad-pacs-gw",
+        vlan: 120
+    },
+    "Lab": {
+        ip: "10.0.2.20",
+        mac: "00:1A:2B:3C:4D:50",
+        hostname: "lab-lis-gw",
+        vlan: 125
+    },
+    "Admin": {
+        ip: "10.0.3.10",
+        mac: "00:1A:2B:3C:4D:60",
+        hostname: "admin-sw-01",
+        vlan: 130
+    },
+    "Wards": {
+        ip: "10.0.3.20",
+        mac: "00:1A:2B:3C:4D:70",
+        hostname: "ward-sw-01",
+        vlan: 135
+    },
+    "Public-Wifi": {
+        ip: "10.0.3.50",
+        mac: "00:1A:2B:3C:4D:80",
+        hostname: "guest-wifi-ap",
+        vlan: 199  // Isolated guest VLAN
+    }
+};
+
+// Internal threat scenarios for private SD-WAN
+const THREAT_TYPES = {
+    COMPROMISED_IOT: "Compromised IoT",
+    LATERAL_MOVEMENT: "Lateral Movement",
+    INSIDER_THREAT: "Insider Threat",
+    DATA_EXFIL: "Data Exfiltration",
+    BOTNET_C2: "Botnet C2 Traffic"
+};
+
+// Simulated compromised IoT devices (internal threat sources)
+const COMPROMISED_IOT_DEVICES = [
+    { ip: "10.0.1.45", hostname: "icu-infusion-pump-03", type: "Infusion Pump" },
+    { ip: "10.0.1.46", hostname: "icu-patient-monitor-07", type: "Patient Monitor" },
+    { ip: "10.0.2.33", hostname: "lab-analyzer-02", type: "Blood Analyzer" },
+    { ip: "10.0.3.88", hostname: "ward-bedside-terminal-12", type: "Bedside Terminal" },
+    { ip: "10.0.3.52", hostname: "guest-laptop-infected", type: "Guest Device" }
+];
+
+// Helper to get random compromised device
+const getRandomCompromisedDevice = () => {
+    return COMPROMISED_IOT_DEVICES[Math.floor(Math.random() * COMPROMISED_IOT_DEVICES.length)];
+};
+
+// Get device info helper
+const getDeviceInfo = (nodeId) => {
+    return DEVICE_REGISTRY[nodeId] || { ip: "10.0.0.0", mac: "00:00:00:00:00:00", hostname: "unknown" };
+};
+
 class Link {
     constructor(source, target, capacityMbps, baseLatencyMs) {
         this.source = source;
@@ -422,17 +511,23 @@ export class NetworkSimulation {
 
         this.generateTraffic();
 
+        // Track for realistic logging rate limiting
+        let criticalAlertCount = 0;
+        let warnAlertCount = 0;
+
         Object.values(this.links).forEach(link => {
             link.update();
 
-            // CSS
+            const srcDevice = getDeviceInfo(link.source);
+            const dstDevice = getDeviceInfo(link.target);
+
+            // CSS - Congestion Severity Score
             const delayFactor = Math.min(3.0, link.ewmaRtt / link.baseLatency);
             const lossFactor = link.packetLoss * 10;
             const entropyFactor = 1.0 - link.entropy;
-
             const css = (delayFactor * 0.5) + (lossFactor * 20.0) + (entropyFactor * 2.0);
 
-            // Z-Score Algo
+            // Z-Score Anomaly Detection
             if (this.trafficMode !== 'NORMAL' && link.loadHistory.length > 10) {
                 const avg = link.loadHistory.reduce((a, b) => a + b, 0) / link.loadHistory.length;
                 const variance = link.loadHistory.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / link.loadHistory.length;
@@ -440,16 +535,56 @@ export class NetworkSimulation {
 
                 if (stdDev > 0) {
                     const zScore = (link.currentLoad - avg) / stdDev;
-                    if (zScore > 3.0) {
-                        this.addAlert(`Anomaly (Z-Score ${zScore.toFixed(1)}) on ${link.source}->${link.target}`, "WARNING");
+                    if (zScore > 3.0 && warnAlertCount < 2) {
+                        warnAlertCount++;
+                        const compromised = getRandomCompromisedDevice();
+                        this.addAlert(
+                            `Z-Score ${zScore.toFixed(1)} | ${compromised.ip} (${compromised.hostname}) → ${dstDevice.ip} | ${THREAT_TYPES.LATERAL_MOVEMENT}`,
+                            "WARNING"
+                        );
                     }
                 }
             }
 
-            if (css > 4.0 && this.trafficMode !== 'NORMAL') {
-                this.addAlert(`Critical Congestion (CSS ${css.toFixed(1)}) on ${link.source}->${link.target}`, "CRITICAL");
+            // Critical Congestion / DDoS Detection
+            if (css > 4.0 && this.trafficMode !== 'NORMAL' && criticalAlertCount < 2) {
+                criticalAlertCount++;
+
+                if (this.trafficMode === 'DDOS') {
+                    // DDoS-specific realistic log
+                    const compromised = getRandomCompromisedDevice();
+                    const attackMbps = Math.round(link.currentLoad);
+                    const protocol = Math.random() > 0.5 ? "UDP:53" : "TCP:443";
+                    this.addAlert(
+                        `DDoS: ${compromised.ip} (${compromised.type}) → ${dstDevice.ip} (${dstDevice.hostname}) | ${attackMbps} Mbps ${protocol} flood`,
+                        "CRITICAL"
+                    );
+                } else {
+                    // Congestion-specific log
+                    const lossPct = (link.packetLoss * 100).toFixed(1);
+                    this.addAlert(
+                        `Congestion: ${srcDevice.ip} → ${dstDevice.ip} | CSS ${css.toFixed(1)} | ${lossPct}% loss | VLAN ${srcDevice.vlan}`,
+                        "CRITICAL"
+                    );
+                }
+            }
+
+            // Low entropy warning (attack signature)
+            if (link.entropy < 0.3 && this.trafficMode === 'DDOS' && Math.random() > 0.8) {
+                this.addAlert(
+                    `Low Entropy ${link.entropy.toFixed(2)} on ${srcDevice.hostname} | Single traffic type dominant (Attack Signature)`,
+                    "WARNING"
+                );
             }
         });
+
+        // QoS protection alerts (when traffic is being properly prioritized)
+        if (this.trafficMode !== 'NORMAL' && Math.random() > 0.9) {
+            this.addAlert(
+                `QoS: GOLD traffic protected on VLAN 110 | VoIP/EMR prioritized | Bronze dropped`,
+                "INFO"
+            );
+        }
     }
 
     getState() {
