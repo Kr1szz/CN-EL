@@ -71,7 +71,7 @@ npm run dev
 
 ### 3. Open the Simulator
 
-Open your browser and navigate to: **[http://localhost:5173](https://www.google.com/search?q=http://localhost:5173)**
+Open your browser and navigate to: **[https://cn-el.vercel.app]**
 
 
 ## 🎮 How to Use
