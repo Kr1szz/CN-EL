@@ -1,6 +1,6 @@
 
 
-# Private SD-WAN Hospital Network Simulator
+# Private SD-WAN Hospital Network Simulator (CN+Math - EL)
 
 A real-time visualization tool that simulates network traffic in a **private SD-WAN** hospital environment. This project demonstrates how modern private SD-WAN networks detect congestion and defend against DDoS attacks using statistical algorithms.
 
