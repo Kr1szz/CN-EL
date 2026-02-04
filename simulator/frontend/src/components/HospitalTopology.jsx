@@ -3,16 +3,23 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 
 const HospitalTopology = ({ nodes, links }) => {
     // Compact positions - fits in viewport
+    // Hub-and-Spoke Layout (Server in Center)
     const [positions, setPositions] = useState({
-        "Admin": { x: 80, y: 60 },
-        "Wards": { x: 200, y: 60 },
-        "Public-Wifi": { x: 320, y: 60 },
-        "Radiology": { x: 140, y: 150 },
-        "Lab": { x: 260, y: 150 },
-        "ICU-A": { x: 80, y: 240 },
-        "OT-1": { x: 200, y: 240 },
-        "ICU-B": { x: 320, y: 240 },
-        "Server Room": { x: 200, y: 340 },
+        "Server Room": { x: 200, y: 200 }, // Center Hub
+
+        // Upper Arc
+        "Admin": { x: 100, y: 100 },
+        "Radiology": { x: 200, y: 80 },
+        "Lab": { x: 300, y: 100 },
+
+        // Lower Arc (Critical Care)
+        "ICU-A": { x: 120, y: 300 },
+        "OT-1": { x: 200, y: 320 },
+        "ICU-B": { x: 280, y: 300 },
+
+        // Peripherals (Outer)
+        "Public-Wifi": { x: 50, y: 50 },  // Connected to Admin
+        "Wards": { x: 350, y: 50 },       // Connected to Admin/Lab?
     })
 
     const [dragging, setDragging] = useState(null)
