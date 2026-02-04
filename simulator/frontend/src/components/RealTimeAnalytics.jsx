@@ -236,7 +236,7 @@ const RealTimeAnalytics = ({ throughput, entropy, links, trafficMode }) => {
                 }
                 .charts-grid {
                     display: grid;
-                    grid-template-columns: 1fr 1fr;
+                    grid-template-columns: 1fr; /* Single column stack for sidebar readability */
                     gap: 10px;
                 }
                 .mini-chart {

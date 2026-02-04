@@ -171,23 +171,7 @@ function App() {
           </div>
         </header>
 
-        <div className="content-grid-3">
-          {/* LEFT: Terminal Log */}
-          <aside className="left-panel">
-            <div className="terminal-panel">
-              <div className="terminal-header-bar">
-                <Terminal size={14} />
-                <span>System Logs</span>
-              </div>
-              <TerminalLog alerts={allAlerts} />
-            </div>
-
-            {/* NEW: QoS Panel moved to Left or Bottom? No, keep it structurally similar but we can add it here if space permits.
-                Actually, let's keep specific component updates minimal to avoid breaking layout.
-                We will update StatCard section instead.
-            */}
-          </aside>
-
+        <div className="content-grid-2">
           {/* CENTER: Topology + Controls */}
           <main className="visualization-area">
             <div className="viz-header">

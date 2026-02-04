@@ -190,6 +190,17 @@ body {
   }
 }
 
+/* 2-Column Grid - Desktop */
+.content-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  /* Stats panel a bit wider */
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* 3-Column Grid - Desktop */
 .content-grid-3 {
   display: grid;
