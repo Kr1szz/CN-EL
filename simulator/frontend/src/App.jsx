@@ -150,6 +150,13 @@ function App() {
             </div>
           </div>
           <div className="header-right">
+            {/* NEW: Day Scenario Badge */}
+            {data && data.global_stats && data.global_stats.current_day && (
+              <div className="day-badge">
+                <span>📅 {data.global_stats.current_day}</span>
+              </div>
+            )}
+
             <div className={`status-badge ${isRunning ? 'active' : 'inactive'}`}>
               <div className="status-dot"></div>
               {isRunning ? 'ACTIVE' : 'STANDBY'}
@@ -174,6 +181,11 @@ function App() {
               </div>
               <TerminalLog alerts={allAlerts} />
             </div>
+
+            {/* NEW: QoS Panel moved to Left or Bottom? No, keep it structurally similar but we can add it here if space permits.
+                Actually, let's keep specific component updates minimal to avoid breaking layout.
+                We will update StatCard section instead.
+            */}
           </aside>
 
           {/* CENTER: Topology + Controls */}
@@ -244,6 +256,14 @@ function App() {
                 icon={<Shield size={16} />}
                 color={data.global_stats.avg_system_entropy < 0.5 ? "red" : "purple"}
               />
+              {/* NEW: Accuracy Stat Card */}
+              <StatCard
+                label="Prediction Accuracy"
+                value={`${data.global_stats.accuracy ? data.global_stats.accuracy.score : 0}%`}
+                subtext={`TP:${data.global_stats.accuracy?.tp || 0} | FP:${data.global_stats.accuracy?.fp || 0}`}
+                icon={<Zap size={16} />}
+                color="green"
+              />
             </div>
 
             <div className="graphs-section">
@@ -253,10 +273,25 @@ function App() {
                 links={data.links}
                 trafficMode={trafficMode}
               />
+              {/* Make sure QoS Panel passes links correctly */}
+              <QoSPanel links={data.links} />
             </div>
           </aside>
         </div>
       </div>
+
+      <style>{`
+          .day-badge {
+              font-size: 0.75rem;
+              background: rgba(255, 255, 255, 0.1);
+              padding: 4px 8px;
+              border-radius: 4px;
+              margin-right: 10px;
+              border: 1px solid rgba(255, 255, 255, 0.2);
+              font-weight: 600;
+              color: #e2e8f0;
+          }
+      `}</style>
     </div>
   )
 }

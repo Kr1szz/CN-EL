@@ -49,6 +49,11 @@ TRAFFIC_PRIORITY_MAP = {
     TrafficType.NTP: TrafficPriority.GOLD,   # Critical infra
 }
 
+class TrafficDay:
+    WEEKDAY = "WEEKDAY"     # High load, full staff
+    WEEKEND = "WEEKEND"     # Low load, skeletal staff
+    EMERGENCY = "EMERGENCY" # Surge in ER/Trauma traffic
+
 # ============================================================================
 # DEVICE REGISTRY - Real-world network identifiers for realistic logging
 # Private SD-WAN uses RFC 1918 private IP ranges (10.x.x.x)
@@ -296,6 +301,15 @@ class NetworkSimulation:
         self.alerts = []
         self.running = False
         self.traffic_mode = 'NORMAL'  # NORMAL, CONGESTED, DDOS
+        self.traffic_day = TrafficDay.WEEKDAY # Default
+        
+        # Accuracy Metrics
+        self.stats_tp = 0 # True Positives (Attack & Detected)
+        self.stats_tn = 0 # True Negatives (Normal & Not Detected)
+        self.stats_fp = 0 # False Positives (Normal & Flagged)
+        self.stats_fn = 0 # False Negatives (Attack & Not Detected)
+        self.manual_override_day = False 
+
         self.setup_network_floors()
         
     def setup_network_floors(self):
@@ -353,22 +367,35 @@ class NetworkSimulation:
         # Initialize base variables
         jitter = random.uniform(0.9, 1.1)
         
+        # DAY SCENARIO MULTIPLIERS
+        day_multiplier = 1.0
+        if self.traffic_day == TrafficDay.WEEKEND:
+            day_multiplier = 0.4 # Less staff, less HTTP/Dicoms
+        elif self.traffic_day == TrafficDay.EMERGENCY:
+            day_multiplier = 1.2 # Higher baseline
+        
         # 1. TRAFFIC GENERATION
         if self.traffic_mode == 'NORMAL':
             # Normal: Low load, High Entropy (Balanced types)
-            multiplier = 0.5 * jitter
+            multiplier = 0.5 * jitter * day_multiplier
             for link in self.links.values():
-                link.active_traffic.append({"type": TrafficType.IOT, "amount": random.uniform(5, 10)})
-                link.active_traffic.append({"type": TrafficType.DNS, "amount": random.uniform(5, 10)})
-                link.active_traffic.append({"type": TrafficType.HTTP, "amount": random.uniform(5, 15)})
+                # Scale traffic by day
+                link.active_traffic.append({"type": TrafficType.IOT, "amount": random.uniform(5, 10)}) # IoT is constant (24/7)
+                link.active_traffic.append({"type": TrafficType.DNS, "amount": random.uniform(5, 10) * day_multiplier})
+                link.active_traffic.append({"type": TrafficType.HTTP, "amount": random.uniform(5, 15) * day_multiplier})
                 if random.random() > 0.5:
                      link.active_traffic.append({"type": TrafficType.NTP, "amount": random.uniform(5, 10)})
+                
+                # Emergency Scenario Specifics
+                if self.traffic_day == TrafficDay.EMERGENCY and random.random() > 0.7:
+                     # Random surges in VoIP/EMR due to emergency coordination
+                     link.active_traffic.append({"type": TrafficType.VOIP, "amount": random.uniform(20, 50)})
 
         elif self.traffic_mode == 'CONGESTED':
             # Congestion: High Load, High Entropy (All types scaled up)
             # Differentiate from DDoS by keeping diversity high
             # REDUCED SCALE FURTHER (was 1.8-2.5)
-            global_congestion_factor = random.uniform(1.2, 1.8) * jitter
+            global_congestion_factor = random.uniform(1.2, 1.8) * jitter * day_multiplier
             
             for link in self.links.values():
                 # Scale EVERYTHING up
@@ -388,6 +415,7 @@ class NetworkSimulation:
         else:  # DDOS
             # DDoS: High Load, Low Entropy (Single dominant attack type)
             # Background traffic remains NORMAL (don't suppress it, let it be dropped by queue)
+            # Attack traffic is NOT affected by "Day" (Hackers don't care if it's weekend)
             multiplier = 0.5 * jitter 
             for link in self.links.values():
                 link.active_traffic.append({"type": TrafficType.IOT, "amount": random.uniform(5, 10)})
@@ -476,6 +504,41 @@ class NetworkSimulation:
         # Truncate alerts
         if len(self.alerts) > 50:
              self.alerts = self.alerts[-50:]
+             
+        # UPDATE ACCURACY STATS
+        # Definition: 
+        # Positive = Attack
+        # Negative = Normal/Congestion
+        # Alert = System detected something (CRITICAL or WARNING)
+        
+        is_attack_active = (self.traffic_mode == 'DDOS')
+        # Check if ANY link triggered a critical CSS alert in this tick
+        # This is a simplification; ideally we check specific link alerts
+        system_alerted = False
+        for link in self.links.values():
+             delay_factor = min(3.0, link.ewma_rtt / link.base_latency) 
+             loss_factor = link.packet_loss * 10
+             entropy_factor = (1.0 - link.entropy)
+             css = (delay_factor * 0.5) + (loss_factor * 20.0) + (entropy_factor * 2.0)
+             if css > 4.0:
+                 system_alerted = True
+                 break
+        
+        if is_attack_active:
+            if system_alerted:
+                self.stats_tp += 1
+            else:
+                self.stats_fn += 1
+        else:
+            if system_alerted:
+                self.stats_fp += 1
+            else:
+                self.stats_tn += 1
+                
+        # Simulating Day Cycle (rotate every 500 ticks if not manual)
+        if not self.manual_override_day and random.random() < 0.001:
+             days = [TrafficDay.WEEKDAY, TrafficDay.WEEKEND, TrafficDay.EMERGENCY]
+             # self.traffic_day = random.choice(days) # Optional auto-rotation
 
     def add_alert(self, msg, level):
         # Deduplicate
@@ -505,6 +568,14 @@ class NetworkSimulation:
             "global_stats": {
                 "total_throughput_mbps": round(total_load, 1),
                 "avg_system_entropy": round(avg_entropy, 2),
-                "active_nodes": len(self.nodes)
+                "active_nodes": len(self.nodes),
+                "current_day": self.traffic_day,
+                "accuracy": {
+                    "tp": self.stats_tp,
+                    "tn": self.stats_tn,
+                    "fp": self.stats_fp,
+                    "fn": self.stats_fn,
+                    "score": round((self.stats_tp + self.stats_tn) / max(1, self.stats_tp + self.stats_tn + self.stats_fp + self.stats_fn) * 100, 1)
+                }
             }
         }

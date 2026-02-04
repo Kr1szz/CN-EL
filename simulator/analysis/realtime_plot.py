@@ -35,7 +35,7 @@ except ImportError:
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-DURATION_SEC = 45  # Total duration: Normal(15s) + Congested(15s) + DDoS(15s)
+DURATION_SEC = 15  # Total duration: Normal(15s) + Congested(15s) + DDoS(15s)
 FPS = 10
 TOTAL_FRAMES = DURATION_SEC * FPS
 
@@ -126,11 +126,11 @@ def update(frame):
     current_time = frame / FPS
     
     # Determine mode based on time phase
-    if current_time < 15:
+    if current_time < 5:
         mode = "NORMAL"
         mode_color = COLORS['NORMAL']
         phase_alpha = 0.1
-    elif current_time < 30:
+    elif current_time < 10:
         mode = "CONGESTED"
         mode_color = COLORS['CONGESTED']
         phase_alpha = 0.15
@@ -149,12 +149,38 @@ def update(frame):
     history['load'].append(state['global_stats']['total_throughput_mbps'])
     history['entropy'].append(state['global_stats']['avg_system_entropy'])
     
+    # NEW: Metrics for Accuracy & WFQ
+    # Get Accuracy
+    acc_data = state['global_stats'].get('accuracy', {'score': 0})
+    history['loss'].append(acc_data['score']) # Reusing 'loss' deque for 'accuracy' for now, or better, add new key
+    
+    # Calculate Total QoS Drops
+    current_gold_drops = sum(l['qos']['gold_drops'] for l in state['links'])
+    current_bronze_drops = sum(l['qos']['bronze_drops'] for l in state['links'])
+    
+    if not hasattr(update, "last_gold_drops"):
+         update.last_gold_drops = 0
+         update.last_bronze_drops = 0
+         
+    # Delta drops (drops per second roughly)
+    d_gold = current_gold_drops - update.last_gold_drops
+    d_bronze = current_bronze_drops - update.last_bronze_drops
+    update.last_gold_drops = current_gold_drops
+    update.last_bronze_drops = current_bronze_drops
+    
+    # Store drops
+    if 'wfq_gold' not in history: history['wfq_gold'] = deque(maxlen=TOTAL_FRAMES)
+    if 'wfq_bronze' not in history: history['wfq_bronze'] = deque(maxlen=TOTAL_FRAMES)
+    
+    history['wfq_gold'].append(d_gold)
+    history['wfq_bronze'].append(d_bronze)
+
     # Max packet loss
     max_loss = max([l['packet_loss'] for l in state['links']]) / 100 if state['links'] else 0
-    history['loss'].append(max_loss)
+    # history['loss'].append(max_loss) # REPLACED with Accuracy above
     
     # Update mode indicator
-    mode_text.set_text(f'MODE: {mode}')
+    mode_text.set_text(f'MODE: {mode} | DAY: {state["global_stats"].get("current_day", "WEEKDAY")}')
     mode_text.set_color(mode_color)
     
     # Time data
@@ -212,61 +238,52 @@ def update(frame):
     ax2.legend(loc='lower left', fontsize=7)
     
     # ========================
-    # PLOT 3: Packet Loss
+    # PLOT 3: Prediction Accuracy (NEW)
     # ========================
     ax3.clear()
-    setup_ax(ax3, '📉 Packet Loss (QoS Impact)', 'Loss Rate')
+    setup_ax(ax3, '🎯 Prediction Accuracy (Recall/Precision)', 'Accuracy %')
     ax3.set_xlim(0, x_max)
-    ax3.set_ylim(0, 1.0)
+    ax3.set_ylim(0, 105)
     
-    losses = list(history['loss'])
-    if losses:
-        ax3.fill_between(times, losses, alpha=0.4, color=COLORS['loss'])
-        ax3.plot(times, losses, color=COLORS['loss'], linewidth=2)
+    accuracies = list(history['loss']) # We stored accuracy score in 'loss' deque
+    if accuracies:
+        # Green if high accuracy, red if low
+        acc_color = '#22c55e' if accuracies[-1] > 90 else '#ef4444'
+        ax3.plot(times, accuracies, color=acc_color, linewidth=2, label='System Accuracy')
         
-        ax3.annotate(f'{losses[-1]*100:.1f}%', xy=(times[-1], losses[-1]),
+        ax3.annotate(f'{accuracies[-1]:.1f}%', xy=(times[-1], accuracies[-1]),
                     xytext=(10, 5), textcoords='offset points',
-                    fontsize=9, color=COLORS['loss'], fontweight='bold')
-    
+                    fontsize=9, color=acc_color, fontweight='bold')
+                    
     ax3.axvspan(0, 15, color=COLORS['NORMAL'], alpha=0.05)
     ax3.axvspan(15, 30, color=COLORS['CONGESTED'], alpha=0.05)
     ax3.axvspan(30, 45, color=COLORS['DDOS'], alpha=0.05)
     
     # ========================
-    # PLOT 4: Internal Threat Sources
+    # PLOT 4: WFQ Drops (NEW)
     # ========================
     ax4.clear()
-    ax4.set_title('⚠️ Internal Attack Sources (Private Network)', fontweight='bold', fontsize=10, color='#e0e0e0')
+    ax4.set_title('🛡️ QoS Stats: Weighted Fair Queuing Drops', fontweight='bold', fontsize=10, color='#e0e0e0')
+    ax4.set_ylabel('Drops / Sec', fontsize=9, color='#94a3b8')
+    ax4.set_xlabel('Time (s)', fontsize=8, color='#64748b')
     ax4.set_facecolor('#0f172a')
     for spine in ax4.spines.values():
         spine.set_color('#334155')
+    ax4.grid(True, linestyle='--', alpha=0.3, color=COLORS['grid'])
+    ax4.set_xlim(0, x_max)
     
-    sources = list(THREAT_SOURCES.keys())
-    levels = [THREAT_SOURCES[s]['level'] for s in sources]
-    colors = [COLORS['DDOS'] if l == 3 else COLORS['CONGESTED'] if l == 2 else COLORS['NORMAL'] for l in levels]
-    
-    # Highlight active sources during DDoS
-    alphas = [1.0 if mode == 'DDOS' else 0.4 for _ in sources]
-    
-    bars = ax4.barh(sources, levels, color=colors, alpha=1.0 if mode == 'DDOS' else 0.5, edgecolor='white', linewidth=0.5)
-    ax4.set_xlim(0, 4)
-    ax4.set_xticks([1, 2, 3])
-    ax4.set_xticklabels(['LOW', 'MEDIUM', 'HIGH'], color='#94a3b8')
-    ax4.tick_params(colors='#94a3b8')
-    
-    # Add IP annotations
-    for i, (source, info) in enumerate(THREAT_SOURCES.items()):
-        ax4.annotate(f'{info["ip"]} ({info["type"]})', 
-                    xy=(levels[i] + 0.1, i),
-                    fontsize=8, color='#94a3b8', va='center')
-    
-    # Status indicator
-    status_text = "🔴 ATTACK ACTIVE" if mode == 'DDOS' else "🟡 MONITORING" if mode == 'CONGESTED' else "🟢 NORMAL"
-    ax4.text(0.5, -0.15, status_text, transform=ax4.transAxes, fontsize=10, 
-            color=mode_color, ha='center', fontweight='bold')
-    
-    ax4.text(0.5, -0.25, 'Private SD-WAN: Threats originate from internal compromised devices', 
-            transform=ax4.transAxes, fontsize=7, color='#64748b', ha='center')
+    if 'wfq_bronze' in history:
+        bronze = list(history['wfq_bronze'])
+        gold = list(history['wfq_gold'])
+        
+        ax4.plot(times, bronze, color='#f59e0b', label='Bronze Drops (Bulk)', linewidth=1.5)
+        ax4.plot(times, gold, color='#ef4444', label='Gold Drops (VoIP)', linewidth=2)
+        
+        if bronze:
+             ax4.annotate(f'Bronze: {bronze[-1]}', xy=(times[-1], bronze[-1]), xytext=(10,0), textcoords='offset points', color='#f59e0b', fontsize=8)
+             ax4.annotate(f'Gold: {gold[-1]}', xy=(times[-1], max(0, gold[-1])), xytext=(10,10), textcoords='offset points', color='#ef4444', fontsize=8)
+
+    ax4.legend(loc='upper left', fontsize=8)
     
     # Progress indicator
     progress = (frame + 1) / TOTAL_FRAMES * 100
